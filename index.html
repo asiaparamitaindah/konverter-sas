@@ -232,30 +232,6 @@
             color: #ffffff !important;
         }
 
-        .tab-container {
-            display: flex;
-            border-bottom: 2px solid #007bff;
-            margin-bottom: 20px;
-            margin-top: 20px;
-        }
-        .tab-btn {
-            flex: 1;
-            padding: 12px;
-            cursor: pointer;
-            border-radius: 5px 5px 0 0;
-            background-color: #f8f9fa;
-            border: 1px solid #dee2e6;
-            border-bottom: none;
-            margin-right: 2px;
-            font-weight: bold;
-            color: #6c757d;
-            transition: 0.3s;
-        }
-        .tab-btn.active {
-            background-color: #007bff;
-            color: white;
-            border-color: #007bff;
-        }
         .tab-content {
             display: none;
             animation: fadeIn 0.3s;
@@ -334,7 +310,7 @@
 <body>
 
 <div class="container">
-    <div class="version" id="appVersion">v1.33.0</div> <h2>Konverter SAS &rarr; Import Item</h2>
+    <div class="version" id="appVersion">v1.34.0</div> <h2>Konverter SAS &rarr; Import Item</h2>
     <p>Upload file <strong>SAS</strong> lalu masukkan <strong>No Bukti</strong> untuk mengambil barang khusus nota tersebut saja.</p>
     
     <div class="mapping-info">
@@ -349,12 +325,7 @@
         </ul>
     </div>
 
-    <div class="tab-container">
-        <div class="tab-btn active" onclick="switchTab('sas')" id="btn-tab-sas">Input SAS Utama</div>
-        <div class="tab-btn" onclick="switchTab('manual')" id="btn-tab-manual">Input Barang Manual</div>
-    </div>
-
-    <div id="tab-sas" class="tab-content active">
+    <div id="tab-sas" class="tab-content active" style="margin-top: 20px;">
         <div class="form-group">
             <label for="fileInput">Pilih file SAS (.xlsx / .csv):</label>
             <input type="file" id="fileInput" accept=".xlsx, .xls, .csv" onchange="handleFileSelect(this)">
@@ -393,46 +364,6 @@
                 <button type="button" class="btn-success" style="margin-top: 0; padding: 10px 15px; width: auto;" onclick="showDetailNota()">Lihat Detail Nota</button>
             </div>
             <small class="help-text">Ketik No Bukti secara lengkap untuk memunculkan preview barang di bawah.</small>
-        </div>
-    </div>
-
-    <div id="tab-manual" class="tab-content">
-        <div class="mapping-info" style="background-color: #fff8e1; border-left: 4px solid #ffc107;">
-            <strong>Metode Input Manual:</strong><br>
-            Tambahkan barang di luar SAS. Klik tombol di bawah untuk mendownload data <strong>ARBRG</strong> langsung ke program. Jika internet Anda memblokir koneksi (Failed to fetch), silakan gunakan form Upload File manual.
-        </div>
-
-        <div class="form-group">
-            <label>Master Barang (ARBRG):</label>
-            <div style="display: flex; gap: 10px; align-items: center; margin-bottom: 10px;">
-                <button type="button" class="btn-success" style="margin: 0; padding: 10px 15px; width: auto;" onclick="loadArbrgFromDrive()">⬇️ Download Langsung ke Program</button>
-                <span style="font-size: 12px; color: #666; font-weight: bold;">Atau Upload File:</span>
-            </div>
-            <input type="file" id="fileArbrgInput" accept=".xlsx, .xls, .csv" onchange="handleArbrgSelect(this)">
-        </div>
-
-        <div class="form-group" style="background: #fafafa; padding: 15px; border: 1px solid #e5e7eb; border-radius: 6px;">
-            <label>Tambah/Edit Barang Manual (Otomatis Jadi Pcs):</label>
-            <div style="display: flex; gap: 10px; align-items: flex-start; margin-top: 10px;">
-                <div style="flex: 2; position: relative;">
-                    <input type="text" id="manualKdBrg" placeholder="Ketik Kode/Nama" autocomplete="off" oninput="handleArbrgInput()" onfocus="handleArbrgInput()" onkeydown="handleArbrgKeyDown(event)">
-                    <div id="arbrgSuggestionBox" class="suggestion-box"></div>
-                </div>
-                <div style="flex: 2; display: flex; gap: 5px;">
-                    <input type="number" id="manualQtyDus" placeholder="Dus" min="0" title="Qty Dus" onkeydown="if(event.keyCode===13){ addManualItem(); }">
-                    <input type="number" id="manualQtyLsn" placeholder="Lsn" min="0" title="Qty Lusin" onkeydown="if(event.keyCode===13){ addManualItem(); }">
-                    <input type="number" id="manualQtyPcs" placeholder="Pcs" min="0" title="Qty Pcs" onkeydown="if(event.keyCode===13){ addManualItem(); }">
-                </div>
-                <div style="flex: 1;">
-                    <select id="manualBonus" onkeydown="if(event.keyCode===13){ addManualItem(); }">
-                        <option value="0">Normal (0)</option>
-                        <option value="1">Bonus (1)</option>
-                    </select>
-                </div>
-                <div>
-                    <button type="button" id="btnSubmitManual" class="btn-primary" style="margin-top: 0; padding: 10px 15px;" onclick="addManualItem()">Tambah</button>
-                </div>
-            </div>
         </div>
     </div>
 
@@ -585,14 +516,17 @@
         globalColDivisi = "";
 
         document.getElementById('fileInput').value = "";
-        document.getElementById('fileArbrgInput').value = "";
+        
+        // Cek id element input manual sebelum mereset (karena UI sudah dihapus)
+        if(document.getElementById('fileArbrgInput')) document.getElementById('fileArbrgInput').value = "";
+        
         document.getElementById('noBuktiInput').value = "";
         
-        document.getElementById('manualKdBrg').value = "";
-        document.getElementById('manualQtyDus').value = "";
-        document.getElementById('manualQtyLsn').value = "";
-        document.getElementById('manualQtyPcs').value = "";
-        document.getElementById('manualBonus').value = "0";
+        if(document.getElementById('manualKdBrg')) document.getElementById('manualKdBrg').value = "";
+        if(document.getElementById('manualQtyDus')) document.getElementById('manualQtyDus').value = "";
+        if(document.getElementById('manualQtyLsn')) document.getElementById('manualQtyLsn').value = "";
+        if(document.getElementById('manualQtyPcs')) document.getElementById('manualQtyPcs').value = "";
+        if(document.getElementById('manualBonus')) document.getElementById('manualBonus').value = "0";
 
         document.getElementById('summaryBox').style.display = "none";
         document.getElementById('previewBox').style.display = "none";
@@ -610,18 +544,31 @@
     }
 
     function switchTab(tabId) {
-        document.getElementById('tab-sas').classList.remove('active');
-        document.getElementById('tab-manual').classList.remove('active');
-        document.getElementById('btn-tab-sas').classList.remove('active');
-        document.getElementById('btn-tab-manual').classList.remove('active');
+        // Karena tab manual sudah dihapus, fungsi switch tab bisa dikosongkan 
+        // namun saya biarkan sesuai instruksi "jangan ubah apapun kecuali".
+        
+        let tabSas = document.getElementById('tab-sas');
+        let tabManual = document.getElementById('tab-manual');
+        let btnTabSas = document.getElementById('btn-tab-sas');
+        let btnTabManual = document.getElementById('btn-tab-manual');
 
-        document.getElementById('tab-' + tabId).classList.add('active');
-        document.getElementById('btn-tab-' + tabId).classList.add('active');
+        if(tabSas) tabSas.classList.remove('active');
+        if(tabManual) tabManual.classList.remove('active');
+        if(btnTabSas) btnTabSas.classList.remove('active');
+        if(btnTabManual) btnTabManual.classList.remove('active');
+
+        let targetTab = document.getElementById('tab-' + tabId);
+        let targetBtn = document.getElementById('btn-tab-' + tabId);
+        
+        if(targetTab) targetTab.classList.add('active');
+        if(targetBtn) targetBtn.classList.add('active');
 
         if(tabId === 'manual') {
-            document.getElementById('btnRekapSAS').style.display = 'none';
+            let btnRekap = document.getElementById('btnRekapSAS');
+            if(btnRekap) btnRekap.style.display = 'none';
         } else {
-            document.getElementById('btnRekapSAS').style.display = 'block';
+            let btnRekap = document.getElementById('btnRekapSAS');
+            if(btnRekap) btnRekap.style.display = 'block';
         }
     }
 
@@ -671,7 +618,7 @@
             { key: "AW", label: "Dsc3Rp (AW)" },
             { key: "AX", label: "Dsc4Rp (AX)" },
             { key: "AY", label: "Dsc5Rp (AY)" },
-            { key: "AZ", label: "Disc1 (AZ)" }, // KODE BARU: Ganti label Dsc6Rp (AZ) jadi Disc1 (AZ)
+            { key: "AZ", label: "Disc1 (AZ)" }, 
             { key: "BA", label: "Dsc7Rp (BA)" },
             { key: "BB", label: "Dsc8Rp (BB)" },
             { key: "BC", label: "Dsc9Rp (BC)" }
@@ -710,10 +657,12 @@
         }
         headHtml += `
             <th style="padding: 8px; border-bottom: 1px solid #e5e7eb; border-right: 1px solid #e5e7eb; position: sticky; top: 0; text-align: right;">Qty Pcs (AS)</th>
-            <th style="padding: 8px; border-bottom: 1px solid #e5e7eb; border-right: 1px solid #e5e7eb; position: sticky; top: 0; text-align: right;">Harga Std / PCS (AH)</th> <th style="padding: 8px; border-bottom: 1px solid #e5e7eb; border-right: 1px solid #e5e7eb; position: sticky; top: 0; text-align: right;">Harga Std / LSN (AO)</th> `;
+            <th style="padding: 8px; border-bottom: 1px solid #e5e7eb; border-right: 1px solid #e5e7eb; position: sticky; top: 0; text-align: right;">Harga Std / PCS (AH)</th> 
+            <th style="padding: 8px; border-bottom: 1px solid #e5e7eb; border-right: 1px solid #e5e7eb; position: sticky; top: 0; text-align: right;">Harga Std / LSN (AO)</th> 
+        `;
         
         activeDscCols.forEach(col => {
-            let pctLabel = col.key === "AZ" ? "Disc1 % (AZ)" : `Dsc % (${col.key})`; // KODE BARU: Ganti nama Dsc % (AZ) jadi Disc1 % (AZ)
+            let pctLabel = col.key === "AZ" ? "Disc1 % (AZ)" : `Dsc % (${col.key})`; 
             headHtml += `<th style="padding: 8px; border-bottom: 1px solid #e5e7eb; border-right: 1px solid #e5e7eb; position: sticky; top: 0; text-align: right;">${pctLabel}</th>`;
             headHtml += `<th style="padding: 8px; border-bottom: 1px solid #e5e7eb; border-right: 1px solid #e5e7eb; position: sticky; top: 0; text-align: right;">${col.label}</th>`;
         });
@@ -859,7 +808,7 @@
         ppnTr.style.backgroundColor = "#f3f4f6";
         ppnTr.innerHTML = `
             <td colspan="${colspanVal}" style="padding: 8px; border-bottom: 1px solid #e5e7eb; border-right: 1px solid #e5e7eb; text-align: right;">PPN 11% (Kolom BE):</td>
-            <td style="padding: 8px; border-bottom: 1px solid #e5e7eb; border-right: 1px solid #e5e7eb; text-align: right;">Rp ${totalPpn.toLocaleString('id-ID', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+            <td style="padding: 8px; border-bottom: 1px solid #e5e7eb; text-align: right;">Rp ${totalPpn.toLocaleString('id-ID', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
         `;
         tbody.appendChild(ppnTr);
 
@@ -1356,6 +1305,27 @@
         saveToStorage(); 
     }
 
+    function editManualItem(index) {
+        editManualIndex = index;
+        const item = manualItemsList[index];
+        
+        if(document.getElementById('manualKdBrg')) {
+            document.getElementById('manualKdBrg').value = item.kdbrg;
+            document.getElementById('manualQtyDus').value = item.qtyDus !== undefined ? item.qtyDus : "";
+            document.getElementById('manualQtyLsn').value = item.qtyLsn !== undefined ? item.qtyLsn : "";
+            document.getElementById('manualQtyPcs').value = item.qtyPcs !== undefined ? item.qtyPcs : item.qty;
+            document.getElementById('manualBonus').value = item.bonus;
+            
+            const btn = document.getElementById('btnSubmitManual');
+            btn.innerText = "Update";
+            btn.style.backgroundColor = "#ffc107"; 
+            btn.style.color = "#212529";
+            
+            document.getElementById('manualKdBrg').focus();
+            handleArbrgInput(); 
+        }
+    }
+
     // === L O G I C   F I L E   S A S   U T A M A ===
     function handleFileSelect(input) {
         const statusDiv = document.getElementById('status');
@@ -1615,25 +1585,6 @@
             <td>${actionBtns}</td>
         `;
         document.getElementById('previewBody').appendChild(tr);
-    }
-
-    function editManualItem(index) {
-        editManualIndex = index;
-        const item = manualItemsList[index];
-        
-        document.getElementById('manualKdBrg').value = item.kdbrg;
-        document.getElementById('manualQtyDus').value = item.qtyDus !== undefined ? item.qtyDus : "";
-        document.getElementById('manualQtyLsn').value = item.qtyLsn !== undefined ? item.qtyLsn : "";
-        document.getElementById('manualQtyPcs').value = item.qtyPcs !== undefined ? item.qtyPcs : item.qty;
-        document.getElementById('manualBonus').value = item.bonus;
-        
-        const btn = document.getElementById('btnSubmitManual');
-        btn.innerText = "Update";
-        btn.style.backgroundColor = "#ffc107"; 
-        btn.style.color = "#212529";
-        
-        document.getElementById('manualKdBrg').focus();
-        handleArbrgInput(); 
     }
 
     // === E X P O R T   I M P O R T   I T E M ===
@@ -2041,140 +1992,6 @@
             console.error(error);
             statusDiv.className = "error";
             statusDiv.innerText = "Gagal memproses Rekap SAS.";
-        }
-    }
-
-    // === L O G I C   F I L E   A R B R G   ( M A N U A L ) ===
-    async function loadArbrgFromDrive() {
-        const statusDiv = document.getElementById('status');
-        const spinner = document.getElementById('loadingSpinner');
-        
-        spinner.style.display = "block";
-        statusDiv.className = "processing";
-        statusDiv.innerText = "Sedang mengunduh data ARBRG dari MediaFire... Mohon tunggu.";
-        statusDiv.style.display = "block";
-
-        try {
-            const pageUrl = "https://www.mediafire.com/file/lecco0on83tmgo7/ARBRG1.XLS/file";
-            
-            const proxies = [
-                url => `https://corsproxy.io/?${encodeURIComponent(url)}`,
-                url => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
-                url => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`
-            ];
-
-            let htmlText = "";
-            let successHTML = false;
-
-            for (let proxyFn of proxies) {
-                try {
-                    let response = await fetch(proxyFn(pageUrl));
-                    if (response.ok) { 
-                        htmlText = await response.text();
-                        successHTML = true; 
-                        break; 
-                    }
-                } catch (e) {
-                    console.log("Proxy HTML failed:", proxyFn(pageUrl));
-                }
-            }
-
-            if (!successHTML) {
-                throw new Error("Gagal mengakses halaman MediaFire.");
-            }
-
-            let directUrl = "";
-            const btnMatch = htmlText.match(/id="downloadButton"[^>]+href="([^"]+)"/i) || htmlText.match(/href="([^"]+)"[^>]+id="downloadButton"/i);
-            if (btnMatch && btnMatch[1]) {
-                directUrl = btnMatch[1];
-            } else {
-                const fallbackMatch = htmlText.match(/href="(https:\/\/[a-zA-Z0-9-]+\.mediafire\.com\/[^"]+)"/i);
-                if (fallbackMatch && fallbackMatch[1]) {
-                    directUrl = fallbackMatch[1];
-                } else {
-                    throw new Error("Tidak menemukan tombol download di halaman MediaFire.");
-                }
-            }
-
-            let fileResponse;
-            let successFile = false;
-
-            try {
-                fileResponse = await fetch(directUrl);
-                if (fileResponse.ok) { successFile = true; }
-            } catch (e) {
-                console.log("Direct fetch blocked by CORS.");
-            }
-
-            if (!successFile) {
-                for (let proxyFn of proxies) {
-                    try {
-                        const proxyUrl = proxyFn(directUrl);
-                        fileResponse = await fetch(proxyUrl);
-                        if (fileResponse.ok) { successFile = true; break; }
-                    } catch (e) {
-                        console.log("Proxy File failed:", proxyUrl);
-                    }
-                }
-            }
-
-            if (!successFile || !fileResponse) {
-                throw new Error("Koneksi diblokir oleh jaringan atau proxy.");
-            }
-
-            const arrayBuffer = await fileResponse.arrayBuffer();
-            
-            const textCheck = new TextDecoder().decode(arrayBuffer.slice(0, 150));
-            if (textCheck.toLowerCase().includes("<!doctype html") || textCheck.toLowerCase().includes("<html")) {
-                throw new Error("File ditolak oleh server proxy. Silakan klik tombol 'Atau Upload File' untuk mengupload manual.");
-            }
-
-            const data = new Uint8Array(arrayBuffer);
-            const workbook = XLSX.read(data, {type: 'array'});
-            const firstSheetName = workbook.SheetNames[0];
-            const worksheet = workbook.Sheets[firstSheetName];
-            
-            const arbrgRaw = XLSX.utils.sheet_to_json(worksheet, { header: "A", defval: "" });
-            
-            globalArbrgData = [];
-            let startRow = 0;
-            let colKd = "C"; 
-            let colNm = "D"; 
-
-            if (arbrgRaw.length > 0) {
-                for (let key in arbrgRaw[0]) {
-                    let val = arbrgRaw[0][key].toString().toLowerCase();
-                    if (val === "kdbrg" || val === "kode barang") colKd = key;
-                    if (val === "nmbrg" || val === "nama barang") colNm = key;
-                }
-                startRow = 1; 
-            }
-
-            for (let i = startRow; i < arbrgRaw.length; i++) {
-                const row = arbrgRaw[i];
-                let kd = row[colKd] ? row[colKd].toString().trim() : "";
-                let nm = row[colNm] ? row[colNm].toString().trim() : "";
-                
-                let konvLsn = row["R"] ? parseFloat(row["R"]) || 0 : 0;
-                let konvDus = row["AD"] ? parseFloat(row["AD"]) || 0 : 0;
-
-                if (kd !== "") {
-                    globalArbrgData.push({ kd: kd, nm: nm, konvLsn: konvLsn, konvDus: konvDus });
-                }
-            }
-
-            saveToStorage();
-
-            spinner.style.display = "none";
-            statusDiv.className = "success";
-            statusDiv.innerText = `File ARBRG Sukses Ditarik dari MediaFire! (${globalArbrgData.length} item). Anda dapat mulai Input Manual.`;
-            statusDiv.style.display = "block";
-        } catch (error) {
-            console.error(error);
-            spinner.style.display = "none";
-            statusDiv.className = "error";
-            statusDiv.innerText = "Gagal menarik file ARBRG dari MediaFire. Pastikan koneksi stabil atau gunakan Upload Manual.";
-            statusDiv.style.display = "block";
         }
     }
 </script>
