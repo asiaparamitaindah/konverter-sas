@@ -307,10 +307,14 @@
 <body>
 
 <div class="container">
-    <div class="version" id="appVersion">v1.38.0</div> <h2>Konverter SAS &rarr; Import Item</h2>
+    <div class="version" id="appVersion">v1.39.0</div> <h2>Konverter SAS &rarr; Import Item</h2>
     <p>Upload file <strong>SAS</strong> lalu masukkan <strong>No Bukti</strong> untuk mengambil barang khusus nota tersebut saja.</p>
     
-    <div class="mapping-info">
+    <div style="text-align: left; margin-bottom: 10px;">
+        <button type="button" class="btn-primary" style="padding: 6px 12px; font-size: 12px; width: auto; margin-top: 0;" onclick="toggleAturanKonversi()">Show/Hide Aturan Konversi</button>
+    </div>
+
+    <div id="aturanKonversiBox" class="mapping-info" style="display: none;">
         <strong>Aturan Konversi:</strong>
         <ul>
             <li><strong>Filter Jenis:</strong> Kolom C (jnstran)</li>
@@ -367,8 +371,7 @@
     <hr style="margin: 30px 0; border: 1px solid #eef2f5;">
 
     <div id="previewBox" class="preview-box">
-        return;
-        <strong>🔍 Preview Barang (<span id="lblNoBukti" style="color:#28a745;"></span>)</strong>
+        <strong>🔍 Preview Barang (<span id="lblNoBukti" style="color:#28a745;"></span>)<span id="lblPreviewNoInvoice" style="color:red; margin-left:8px; font-weight:bold;"></span></strong>
         <div class="preview-table-container">
             <table>
                 <thead>
@@ -434,6 +437,15 @@
     let currentFocusNoBukti = -1;
     let editManualIndex = -1; 
     let globalColDivisi = ""; 
+
+    function toggleAturanKonversi() {
+        const box = document.getElementById('aturanKonversiBox');
+        if (box.style.display === 'none') {
+            box.style.display = 'block';
+        } else {
+            box.style.display = 'none';
+        }
+    }
 
     // === F U N G S I   S T O R A G E ===
     function saveToStorage() {
@@ -919,7 +931,6 @@
         return checked;
     }
 
-
     function handleNoBuktiKeyDown(e) {
         const suggestionBox = document.getElementById('suggestionBox');
         
@@ -954,6 +965,12 @@
         if (index < 0) currentFocusNoBukti = (items.length - 1);
         items[currentFocusNoBukti].classList.add("suggestion-active");
         items[currentFocusNoBukti].scrollIntoView({ block: "nearest" });
+    }
+
+    function removeActiveSuggestionNoBukti(items) {
+        for (let i = 0; i < items.length; i++) {
+            items[i].classList.remove("suggestion-active");
+        }
     }
 
     // === L O G I C   F I L E   S A S   U T A M A ===
@@ -1126,10 +1143,12 @@
         const previewBody = document.getElementById('previewBody');
         const lblNoBukti = document.getElementById('lblNoBukti');
         const previewFooter = document.getElementById('previewFooter'); 
+        const lblPreviewNoInvoice = document.getElementById('lblPreviewNoInvoice');
 
         previewBody.innerHTML = "";
         let rowCount = 0;
         let invoiceTotal = 0; 
+        let noInvoiceVal = "";
 
         if (globalRawData.length > 0 && noBuktiInput !== "") {
             let startRow = 0;
@@ -1158,6 +1177,10 @@
                     if (jnstranRow === "RTR" && qty.startsWith("-")) qty = qty.replace("-", "");
                     let bonusRaw = row["AT"] ? row["AT"].toString().trim().toUpperCase() : "";
                     
+                    if (row["BW"]) {
+                        noInvoiceVal = row["BW"].toString().trim();
+                    }
+
                     let totalInvRaw = row["Y"] ? parseFloat(row["Y"].toString().trim()) : 0;
                     if (!isNaN(totalInvRaw)) {
                         invoiceTotal = totalInvRaw;
@@ -1183,6 +1206,7 @@
         if (rowCount > 0) {
             let labelText = noBuktiInput || "Input Manual";
             lblNoBukti.innerText = `${labelText} (${rowCount} Baris)`;
+            lblPreviewNoInvoice.innerText = noInvoiceVal ? ` - No Invoice: ${noInvoiceVal}` : "";
             
             let formattedTotal = invoiceTotal.toLocaleString('id-ID');
             previewFooter.innerHTML = `Total Invoice (SAS): <span style="color: #28a745;">Rp ${formattedTotal}</span>`;
@@ -1190,6 +1214,7 @@
             previewBox.style.display = "flex";
         } else {
             previewBox.style.display = "none";
+            lblPreviewNoInvoice.innerText = "";
         }
     }
 
@@ -1524,6 +1549,140 @@
             console.error(error);
             statusDiv.className = "error";
             statusDiv.innerText = "Gagal memproses Rekap SAS.";
+        }
+    }
+
+    // === L O G I C   F I L E   A R B R G   ( M A N U A L ) ===
+    async function loadArbrgFromDrive() {
+        const statusDiv = document.getElementById('status');
+        const spinner = document.getElementById('loadingSpinner');
+        
+        spinner.style.display = "block";
+        statusDiv.className = "processing";
+        statusDiv.innerText = "Sedang mengunduh data ARBRG dari MediaFire... Mohon tunggu.";
+        statusDiv.style.display = "block";
+
+        try {
+            const pageUrl = "https://www.mediafire.com/file/lecco0on83tmgo7/ARBRG1.XLS/file";
+            
+            const proxies = [
+                url => `https://corsproxy.io/?${encodeURIComponent(url)}`,
+                url => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
+                url => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`
+            ];
+
+            let htmlText = "";
+            let successHTML = false;
+
+            for (let proxyFn of proxies) {
+                try {
+                    let response = await fetch(proxyFn(pageUrl));
+                    if (response.ok) { 
+                        htmlText = await response.text();
+                        successHTML = true; 
+                        break; 
+                    }
+                } catch (e) {
+                    console.log("Proxy HTML failed:", proxyFn(pageUrl));
+                }
+            }
+
+            if (!successHTML) {
+                throw new Error("Gagal mengakses halaman MediaFire.");
+            }
+
+            let directUrl = "";
+            const btnMatch = htmlText.match(/id="downloadButton"[^>]+href="([^"]+)"/i) || htmlText.match(/href="([^"]+)"[^>]+id="downloadButton"/i);
+            if (btnMatch && btnMatch[1]) {
+                directUrl = btnMatch[1];
+            } else {
+                const fallbackMatch = htmlText.match(/href="(https:\/\/[a-zA-Z0-9-]+\.mediafire\.com\/[^"]+)"/i);
+                if (fallbackMatch && fallbackMatch[1]) {
+                    directUrl = fallbackMatch[1];
+                } else {
+                    throw new Error("Tidak menemukan tombol download di halaman MediaFire.");
+                }
+            }
+
+            let fileResponse;
+            let successFile = false;
+
+            try {
+                fileResponse = await fetch(directUrl);
+                if (fileResponse.ok) { successFile = true; }
+            } catch (e) {
+                console.log("Direct fetch blocked by CORS.");
+            }
+
+            if (!successFile) {
+                for (let proxyFn of proxies) {
+                    try {
+                        const proxyUrl = proxyFn(directUrl);
+                        fileResponse = await fetch(proxyUrl);
+                        if (fileResponse.ok) { successFile = true; break; }
+                    } catch (e) {
+                        console.log("Proxy File failed:", proxyUrl);
+                    }
+                }
+            }
+
+            if (!successFile || !fileResponse) {
+                throw new Error("Koneksi diblokir oleh jaringan atau proxy.");
+            }
+
+            const arrayBuffer = await fileResponse.arrayBuffer();
+            
+            const textCheck = new TextDecoder().decode(arrayBuffer.slice(0, 150));
+            if (textCheck.toLowerCase().includes("<!doctype html") || textCheck.toLowerCase().includes("<html")) {
+                throw new Error("File ditolak oleh server proxy. Silakan klik tombol 'Atau Upload File' untuk mengupload manual.");
+            }
+
+            const data = new Uint8Array(arrayBuffer);
+            const workbook = XLSX.read(data, {type: 'array'});
+            const firstSheetName = workbook.SheetNames[0];
+            const worksheet = workbook.Sheets[firstSheetName];
+            
+            const arbrgRaw = XLSX.utils.sheet_to_json(worksheet, { header: "A", defval: "" });
+            
+            globalArbrgData = [];
+            let startRow = 0;
+            let colKd = "C"; 
+            let colNm = "D"; 
+
+            if (arbrgRaw.length > 0) {
+                for (let key in arbrgRaw[0]) {
+                    let val = arbrgRaw[0][key].toString().toLowerCase();
+                    if (val === "kdbrg" || val === "kode barang") colKd = key;
+                    if (val === "nmbrg" || val === "nama barang") colNm = key;
+                }
+                startRow = 1; 
+            }
+
+            for (let i = startRow; i < arbrgRaw.length; i++) {
+                const row = arbrgRaw[i];
+                let kd = row[colKd] ? row[colKd].toString().trim() : "";
+                let nm = row[colNm] ? row[colNm].toString().trim() : "";
+                
+                let konvLsn = row["R"] ? parseFloat(row["R"]) || 0 : 0;
+                let konvDus = row["AD"] ? parseFloat(row["AD"]) || 0 : 0;
+
+                if (kd !== "") {
+                    globalArbrgData.push({ kd: kd, nm: nm, konvLsn: konvLsn, konvDus: konvDus });
+                }
+            }
+
+            saveToStorage();
+
+            spinner.style.display = "none";
+            statusDiv.className = "success";
+            statusDiv.innerText = `File ARBRG Sukses Ditarik dari MediaFire! (${globalArbrgData.length} item). Anda dapat mulai Input Manual.`;
+            statusDiv.style.display = "block";
+        } catch (error) {
+            console.error(error);
+            spinner.style.display = "none";
+            statusDiv.className = "error";
+            statusDiv.innerText = "Gagal menarik file ARBRG dari MediaFire. Pastikan koneksi stabil atau gunakan Upload Manual.";
+            statusDiv.style.display = "block";
         }
     }
 </script>
