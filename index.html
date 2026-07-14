@@ -307,8 +307,7 @@
 <body>
 
 <div class="container">
-    <div class="version" id="appVersion">v1.37.0</div> <!-- Versi Diupdate: Close Detail Nota pakai ESC -->
-    <h2>Konverter SAS &rarr; Import Item</h2>
+    <div class="version" id="appVersion">v1.38.0</div> <h2>Konverter SAS &rarr; Import Item</h2>
     <p>Upload file <strong>SAS</strong> lalu masukkan <strong>No Bukti</strong> untuk mengambil barang khusus nota tersebut saja.</p>
     
     <div class="mapping-info">
@@ -368,6 +367,7 @@
     <hr style="margin: 30px 0; border: 1px solid #eef2f5;">
 
     <div id="previewBox" class="preview-box">
+        return;
         <strong>🔍 Preview Barang (<span id="lblNoBukti" style="color:#28a745;"></span>)</strong>
         <div class="preview-table-container">
             <table>
@@ -408,14 +408,16 @@
 <div id="detailModal" class="modal">
     <div class="modal-content">
         <span class="close" onclick="closeDetailModal()">&times;</span>
+        <label style="float: right; margin-right: 15px; margin-top: 6px; font-size: 13px; font-weight: normal; display: flex; align-items: center; gap: 5px; cursor: pointer; color: #333;">
+            <input type="checkbox" id="chkIncludePpn" onchange="showDetailNota()"> include PPN
+        </label>
         <h3 style="color: #333; margin-top: 0; margin-bottom: 5px;">Detail Keseluruhan Nota: <span id="detailModalNoBukti" style="color: #007bff;"></span></h3>
         <div id="detailModalSubInfo" style="margin-bottom: 15px; font-size: 14px; color: #555;"></div>
         <div class="preview-table-container" style="max-height: 450px; border: 1px solid #e5e7eb;">
             <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
                 <thead>
                     <tr style="background-color: #f3f4f6;">
-                        <!-- Tabel ini akan dirender ulang oleh javascript -->
-                    </tr>
+                        </tr>
                 </thead>
                 <tbody id="detailModalBody"></tbody>
             </table>
@@ -807,14 +809,21 @@
 
         let colspanVal = (isKamKar ? 3 : 2) + 3 + (activeDscCols.length * 2);
 
-        const ppnTr = document.createElement('tr');
-        ppnTr.style.fontWeight = "bold";
-        ppnTr.style.backgroundColor = "#f3f4f6";
-        ppnTr.innerHTML = `
-            <td colspan="${colspanVal}" style="padding: 8px; border-bottom: 1px solid #e5e7eb; border-right: 1px solid #e5e7eb; text-align: right;">PPN 11% (Kolom BE):</td>
-            <td style="padding: 8px; border-bottom: 1px solid #e5e7eb; text-align: right;">Rp ${totalPpn.toLocaleString('id-ID', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-        `;
-        tbody.appendChild(ppnTr);
+        let isPpnRemoved = document.getElementById('chkIncludePpn') && document.getElementById('chkIncludePpn').checked;
+        if (isPpnRemoved) {
+            totalPpn = 0;
+        }
+
+        if (!isPpnRemoved) {
+            const ppnTr = document.createElement('tr');
+            ppnTr.style.fontWeight = "bold";
+            ppnTr.style.backgroundColor = "#f3f4f6";
+            ppnTr.innerHTML = `
+                <td colspan="${colspanVal}" style="padding: 8px; border-bottom: 1px solid #e5e7eb; border-right: 1px solid #e5e7eb; text-align: right;">PPN 11% (Kolom BE):</td>
+                <td style="padding: 8px; border-bottom: 1px solid #e5e7eb; text-align: right;">Rp ${totalPpn.toLocaleString('id-ID', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+            `;
+            tbody.appendChild(ppnTr);
+        }
 
         const grandTotalTr = document.createElement('tr');
         grandTotalTr.style.fontWeight = "bold";
@@ -945,12 +954,6 @@
         if (index < 0) currentFocusNoBukti = (items.length - 1);
         items[currentFocusNoBukti].classList.add("suggestion-active");
         items[currentFocusNoBukti].scrollIntoView({ block: "nearest" });
-    }
-
-    function removeActiveSuggestionNoBukti(items) {
-        for (let i = 0; i < items.length; i++) {
-            items[i].classList.remove("suggestion-active");
-        }
     }
 
     // === L O G I C   F I L E   S A S   U T A M A ===
@@ -1212,6 +1215,12 @@
             <td>${actionBtns}</td>
         `;
         document.getElementById('previewBody').appendChild(tr);
+    }
+
+    function removeActiveSuggestionNoBukti(items) {
+        for (let i = 0; i < items.length; i++) {
+            items[i].classList.remove("suggestion-active");
+        }
     }
 
     // === E X P O R T   I M P O R T   I T E M ===
