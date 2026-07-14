@@ -221,9 +221,6 @@
             border-bottom: 1px solid #eee;
             color: #333;
         }
-        .suggestion-item:last-child {
-            border-bottom: none;
-        }
         .suggestion-item:hover {
             background-color: #e8f4fd;
         }
@@ -310,7 +307,8 @@
 <body>
 
 <div class="container">
-    <div class="version" id="appVersion">v1.34.0</div> <h2>Konverter SAS &rarr; Import Item</h2>
+    <div class="version" id="appVersion">v1.37.0</div> <!-- Versi Diupdate: Close Detail Nota pakai ESC -->
+    <h2>Konverter SAS &rarr; Import Item</h2>
     <p>Upload file <strong>SAS</strong> lalu masukkan <strong>No Bukti</strong> untuk mengambil barang khusus nota tersebut saja.</p>
     
     <div class="mapping-info">
@@ -416,7 +414,8 @@
             <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
                 <thead>
                     <tr style="background-color: #f3f4f6;">
-                        </tr>
+                        <!-- Tabel ini akan dirender ulang oleh javascript -->
+                    </tr>
                 </thead>
                 <tbody id="detailModalBody"></tbody>
             </table>
@@ -517,7 +516,6 @@
 
         document.getElementById('fileInput').value = "";
         
-        // Cek id element input manual sebelum mereset (karena UI sudah dihapus)
         if(document.getElementById('fileArbrgInput')) document.getElementById('fileArbrgInput').value = "";
         
         document.getElementById('noBuktiInput').value = "";
@@ -544,9 +542,6 @@
     }
 
     function switchTab(tabId) {
-        // Karena tab manual sudah dihapus, fungsi switch tab bisa dikosongkan 
-        // namun saya biarkan sesuai instruksi "jangan ubah apapun kecuali".
-        
         let tabSas = document.getElementById('tab-sas');
         let tabManual = document.getElementById('tab-manual');
         let btnTabSas = document.getElementById('btn-tab-sas');
@@ -585,6 +580,15 @@
         const modal = document.getElementById('detailModal');
         if (e.target === modal) {
             modal.style.display = 'none';
+        }
+    });
+
+    document.addEventListener('keydown', function(e) {
+        if (e.key === "Escape" || e.keyCode === 27) {
+            const modal = document.getElementById('detailModal');
+            if (modal && (modal.style.display === 'flex' || modal.style.display === 'block')) {
+                closeDetailModal();
+            }
         }
     });
 
@@ -907,277 +911,6 @@
     }
 
 
-    // === L O G I C   F I L E   A R B R G   ( M A N U A L ) ===
-    async function loadArbrgFromDrive() {
-        const statusDiv = document.getElementById('status');
-        const spinner = document.getElementById('loadingSpinner');
-        
-        spinner.style.display = "block";
-        statusDiv.className = "processing";
-        statusDiv.innerText = "Sedang mengunduh data ARBRG dari MediaFire... Mohon tunggu.";
-        statusDiv.style.display = "block";
-
-        try {
-            const pageUrl = "https://www.mediafire.com/file/lecco0on83tmgo7/ARBRG1.XLS/file";
-            
-            const proxies = [
-                url => `https://corsproxy.io/?${encodeURIComponent(url)}`,
-                url => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
-                url => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`
-            ];
-
-            let htmlText = "";
-            let successHTML = false;
-
-            for (let proxyFn of proxies) {
-                try {
-                    let response = await fetch(proxyFn(pageUrl));
-                    if (response.ok) { 
-                        htmlText = await response.text();
-                        successHTML = true; 
-                        break; 
-                    }
-                } catch (e) {
-                    console.log("Proxy HTML failed:", proxyFn(pageUrl));
-                }
-            }
-
-            if (!successHTML) {
-                throw new Error("Gagal mengakses halaman MediaFire.");
-            }
-
-            let directUrl = "";
-            const btnMatch = htmlText.match(/id="downloadButton"[^>]+href="([^"]+)"/i) || htmlText.match(/href="([^"]+)"[^>]+id="downloadButton"/i);
-            if (btnMatch && btnMatch[1]) {
-                directUrl = btnMatch[1];
-            } else {
-                const fallbackMatch = htmlText.match(/href="(https:\/\/[a-zA-Z0-9-]+\.mediafire\.com\/[^"]+)"/i);
-                if (fallbackMatch && fallbackMatch[1]) {
-                    directUrl = fallbackMatch[1];
-                } else {
-                    throw new Error("Tidak menemukan tombol download di halaman MediaFire.");
-                }
-            }
-
-            let fileResponse;
-            let successFile = false;
-
-            // 1. Coba langsung tanpa proxy (kadang MediaFire mengizinkan download langsung dari IP klien jika link valid)
-            try {
-                fileResponse = await fetch(directUrl);
-                if (fileResponse.ok) { successFile = true; }
-            } catch (e) {
-                console.log("Direct fetch blocked by CORS.");
-            }
-
-            // 2. Jika gagal, coba proxy berurutan
-            if (!successFile) {
-                for (let proxyFn of proxies) {
-                    try {
-                        const proxyUrl = proxyFn(directUrl);
-                        fileResponse = await fetch(proxyUrl);
-                        if (fileResponse.ok) { successFile = true; break; }
-                    } catch (e) {
-                        console.log("Proxy File failed:", proxyUrl);
-                    }
-                }
-            }
-
-            if (!successFile || !fileResponse) {
-                throw new Error("Koneksi diblokir oleh jaringan atau proxy.");
-            }
-
-            const arrayBuffer = await fileResponse.arrayBuffer();
-            
-            const textCheck = new TextDecoder().decode(arrayBuffer.slice(0, 150));
-            if (textCheck.toLowerCase().includes("<!doctype html") || textCheck.toLowerCase().includes("<html")) {
-                throw new Error("File ditolak oleh server proxy. Silakan klik tombol 'Atau Upload File' untuk mengupload manual.");
-            }
-
-            const data = new Uint8Array(arrayBuffer);
-            const workbook = XLSX.read(data, {type: 'array'});
-            const firstSheetName = workbook.SheetNames[0];
-            const worksheet = workbook.Sheets[firstSheetName];
-            
-            const arbrgRaw = XLSX.utils.sheet_to_json(worksheet, { header: "A", defval: "" });
-            
-            globalArbrgData = [];
-            let startRow = 0;
-            let colKd = "C"; 
-            let colNm = "D"; 
-
-            if (arbrgRaw.length > 0) {
-                for (let key in arbrgRaw[0]) {
-                    let val = arbrgRaw[0][key].toString().toLowerCase();
-                    if (val === "kdbrg" || val === "kode barang") colKd = key;
-                    if (val === "nmbrg" || val === "nama barang") colNm = key;
-                }
-                startRow = 1; 
-            }
-
-            for (let i = startRow; i < arbrgRaw.length; i++) {
-                const row = arbrgRaw[i];
-                let kd = row[colKd] ? row[colKd].toString().trim() : "";
-                let nm = row[colNm] ? row[colNm].toString().trim() : "";
-                
-                let konvLsn = row["R"] ? parseFloat(row["R"]) || 0 : 0;
-                let konvDus = row["AD"] ? parseFloat(row["AD"]) || 0 : 0;
-
-                if (kd !== "") {
-                    globalArbrgData.push({ kd: kd, nm: nm, konvLsn: konvLsn, konvDus: konvDus });
-                }
-            }
-
-            saveToStorage();
-
-            spinner.style.display = "none";
-            statusDiv.className = "success";
-            statusDiv.innerText = `File ARBRG Sukses Ditarik dari MediaFire! (${globalArbrgData.length} item). Anda dapat mulai Input Manual.`;
-            statusDiv.style.display = "block";
-        } catch (error) {
-            console.error(error);
-            spinner.style.display = "none";
-            statusDiv.className = "error";
-            statusDiv.innerText = "Gagal menarik file ARBRG dari MediaFire. Pastikan koneksi stabil atau gunakan Upload Manual.";
-            statusDiv.style.display = "block";
-        }
-    }
-
-    function handleArbrgSelect(input) {
-        const statusDiv = document.getElementById('status');
-        const spinner = document.getElementById('loadingSpinner');
-        if (!input.files.length) return;
-
-        spinner.style.display = "block";
-        const file = input.files[0];
-        const reader = new FileReader();
-
-        reader.onload = function(e) {
-            try {
-                const data = new Uint8Array(e.target.result);
-                const workbook = XLSX.read(data, {type: 'array'});
-                const firstSheetName = workbook.SheetNames[0];
-                const worksheet = workbook.Sheets[firstSheetName];
-                
-                const arbrgRaw = XLSX.utils.sheet_to_json(worksheet, { header: "A", defval: "" });
-                
-                globalArbrgData = [];
-                let startRow = 0;
-                let colKd = "C"; 
-                let colNm = "D"; 
-
-                if (arbrgRaw.length > 0) {
-                    for (let key in arbrgRaw[0]) {
-                        let val = arbrgRaw[0][key].toString().toLowerCase();
-                        if (val === "kdbrg" || val === "kode barang") colKd = key;
-                        if (val === "nmbrg" || val === "nama barang") colNm = key;
-                    }
-                    startRow = 1; 
-                }
-
-                for (let i = startRow; i < arbrgRaw.length; i++) {
-                    const row = arbrgRaw[i];
-                    let kd = row[colKd] ? row[colKd].toString().trim() : "";
-                    let nm = row[colNm] ? row[colNm].toString().trim() : "";
-                    
-                    let konvLsn = row["R"] ? parseFloat(row["R"]) || 0 : 0;
-                    let konvDus = row["AD"] ? parseFloat(row["AD"]) || 0 : 0;
-
-                    if (kd !== "") {
-                        globalArbrgData.push({ kd: kd, nm: nm, konvLsn: konvLsn, konvDus: konvDus });
-                    }
-                }
-
-                saveToStorage();
-
-                spinner.style.display = "none";
-                statusDiv.className = "success";
-                statusDiv.innerText = `File ARBRG Sukses Dibaca! (${globalArbrgData.length} item). Anda dapat mulai Input Manual.`;
-                statusDiv.style.display = "block";
-            } catch (error) {
-                console.error(error);
-                spinner.style.display = "none";
-                statusDiv.className = "error";
-                statusDiv.innerText = "Gagal membaca file ARBRG! Pastikan file tidak rusak.";
-                statusDiv.style.display = "block";
-            }
-        };
-
-        reader.readAsArrayBuffer(file);
-    }
-
-    function handleArbrgInput() {
-        const inputVal = document.getElementById('manualKdBrg').value.trim().toLowerCase();
-        const suggestionBox = document.getElementById('arbrgSuggestionBox');
-        
-        currentFocusArbrg = -1;
-
-        if (inputVal.length > 1 && globalArbrgData.length > 0) { 
-            const matchesKd = globalArbrgData.filter(item => item.kd.toLowerCase().includes(inputVal));
-            const matchesNm = globalArbrgData.filter(item => !item.kd.toLowerCase().includes(inputVal) && item.nm.toLowerCase().includes(inputVal));
-            
-            const filtered = [...matchesKd, ...matchesNm].slice(0, 50); 
-
-            if (filtered.length > 0) {
-                suggestionBox.innerHTML = "";
-                filtered.forEach(item => {
-                    const div = document.createElement('div');
-                    div.className = 'suggestion-item';
-                    div.innerText = `${item.kd} - ${item.nm}`;
-                    div.onclick = function() {
-                        document.getElementById('manualKdBrg').value = item.kd; 
-                        suggestionBox.style.display = 'none';
-                        document.getElementById('manualQtyDus').focus(); 
-                    };
-                    suggestionBox.appendChild(div);
-                });
-                suggestionBox.style.display = 'block';
-            } else {
-                suggestionBox.style.display = 'none';
-            }
-        } else {
-            suggestionBox.style.display = 'none';
-        }
-    }
-
-    function handleArbrgKeyDown(e) {
-        const suggestionBox = document.getElementById('arbrgSuggestionBox');
-        
-        if (suggestionBox.style.display === 'none' || suggestionBox.innerHTML === '') {
-            if (e.keyCode === 13) {
-                e.preventDefault();
-                addManualItem();
-            }
-            return;
-        }
-        
-        let items = suggestionBox.getElementsByClassName('suggestion-item');
-        if (!items || items.length === 0) {
-            if (e.keyCode === 13) {
-                e.preventDefault();
-                addManualItem();
-            }
-            return;
-        }
-
-        if (e.keyCode === 40) { 
-            currentFocusArbrg++;
-            addActiveSuggestion(items, currentFocusArbrg);
-            e.preventDefault();
-        } else if (e.keyCode === 38) { 
-            currentFocusArbrg--;
-            addActiveSuggestion(items, currentFocusArbrg);
-            e.preventDefault();
-        } else if (e.keyCode === 13) { 
-            e.preventDefault();
-            if (currentFocusArbrg > -1) {
-                items[currentFocusArbrg].click();
-            } else if (items.length > 0) {
-                items[0].click();
-            }
-        }
-    }
-
     function handleNoBuktiKeyDown(e) {
         const suggestionBox = document.getElementById('suggestionBox');
         
@@ -1217,112 +950,6 @@
     function removeActiveSuggestionNoBukti(items) {
         for (let i = 0; i < items.length; i++) {
             items[i].classList.remove("suggestion-active");
-        }
-    }
-
-    function addActiveSuggestion(items, index) {
-        removeActiveSuggestion(items);
-        if (index >= items.length) currentFocusArbrg = 0;
-        if (index < 0) currentFocusArbrg = (items.length - 1);
-        items[currentFocusArbrg].classList.add("suggestion-active");
-        items[currentFocusArbrg].scrollIntoView({ block: "nearest" });
-    }
-
-    function removeActiveSuggestion(items) {
-        for (let i = 0; i < items.length; i++) {
-            items[i].classList.remove("suggestion-active");
-        }
-    }
-
-    function addManualItem() {
-        const kd = document.getElementById('manualKdBrg').value.trim();
-        const qtyDus = parseFloat(document.getElementById('manualQtyDus').value) || 0;
-        const qtyLsn = parseFloat(document.getElementById('manualQtyLsn').value) || 0;
-        const qtyPcs = parseFloat(document.getElementById('manualQtyPcs').value) || 0;
-        const bns = document.getElementById('manualBonus').value;
-
-        if(!kd || (qtyDus === 0 && qtyLsn === 0 && qtyPcs === 0)) {
-            alert("Kode Barang dan setidaknya salah satu Qty (Dus/Lsn/Pcs) harus diisi!");
-            return;
-        }
-
-        let kDus = 0;
-        let kLsn = 0;
-        const itemRef = globalArbrgData.find(x => x.kd.toLowerCase() === kd.toLowerCase());
-        
-        if (itemRef) {
-            kDus = itemRef.konvDus || 0;
-            kLsn = itemRef.konvLsn || 0;
-        } else if (qtyDus > 0 || qtyLsn > 0) {
-            alert("Barang tidak ditemukan di Master ARBRG. Nilai konversi dianggap 0, silakan tarik data ARBRG terlebih dahulu jika butuh otomatisasi Dus/Lsn.");
-        }
-
-        const totalPcs = (qtyDus * kDus) + (qtyLsn * kLsn) + qtyPcs;
-
-        if (editManualIndex > -1) {
-            manualItemsList[editManualIndex] = { kdbrg: kd, qty: totalPcs, bonus: bns, qtyDus: qtyDus, qtyLsn: qtyLsn, qtyPcs: qtyPcs };
-            editManualIndex = -1; 
-            
-            const btn = document.getElementById('btnSubmitManual');
-            btn.innerText = "Tambah";
-            btn.style.backgroundColor = "#007bff";
-            btn.style.color = "white";
-        } else {
-            manualItemsList.push({ kdbrg: kd, qty: totalPcs, bonus: bns, qtyDus: qtyDus, qtyLsn: qtyLsn, qtyPcs: qtyPcs });
-        }
-
-        document.getElementById('manualKdBrg').value = "";
-        document.getElementById('manualQtyDus').value = "";
-        document.getElementById('manualQtyLsn').value = "";
-        document.getElementById('manualQtyPcs').value = "";
-        document.getElementById('manualBonus').value = "0";
-
-        renderPreview();
-        document.getElementById('manualKdBrg').focus();
-        
-        saveToStorage(); 
-    }
-
-    function removeManualItem(index) {
-        manualItemsList.splice(index, 1);
-        
-        if (editManualIndex === index) {
-            editManualIndex = -1;
-            const btn = document.getElementById('btnSubmitManual');
-            btn.innerText = "Tambah";
-            btn.style.backgroundColor = "#007bff";
-            btn.style.color = "white";
-            document.getElementById('manualKdBrg').value = "";
-            document.getElementById('manualQtyDus').value = "";
-            document.getElementById('manualQtyLsn').value = "";
-            document.getElementById('manualQtyPcs').value = "";
-            document.getElementById('manualBonus').value = "0";
-        } else if (editManualIndex > index) {
-            editManualIndex--;
-        }
-        
-        renderPreview();
-        saveToStorage(); 
-    }
-
-    function editManualItem(index) {
-        editManualIndex = index;
-        const item = manualItemsList[index];
-        
-        if(document.getElementById('manualKdBrg')) {
-            document.getElementById('manualKdBrg').value = item.kdbrg;
-            document.getElementById('manualQtyDus').value = item.qtyDus !== undefined ? item.qtyDus : "";
-            document.getElementById('manualQtyLsn').value = item.qtyLsn !== undefined ? item.qtyLsn : "";
-            document.getElementById('manualQtyPcs').value = item.qtyPcs !== undefined ? item.qtyPcs : item.qty;
-            document.getElementById('manualBonus').value = item.bonus;
-            
-            const btn = document.getElementById('btnSubmitManual');
-            btn.innerText = "Update";
-            btn.style.backgroundColor = "#ffc107"; 
-            btn.style.color = "#212529";
-            
-            document.getElementById('manualKdBrg').focus();
-            handleArbrgInput(); 
         }
     }
 
@@ -1649,18 +1276,6 @@
                 }
             }
 
-            // 2. Ambil dari Manual Input
-            for(let i=0; i < manualItemsList.length; i++) {
-                let m = manualItemsList[i];
-                importItemData.push({
-                    "Kode Barang (50)": m.kdbrg,
-                    "Nama Barang (3)": "",
-                    "Qty": m.qty,
-                    "Tipe Satuan (1/2/3)": "1",
-                    "Is Bonus (0/1)": m.bonus
-                });
-            }
-
             if (importItemData.length === 0) {
                 statusDiv.className = "error";
                 statusDiv.innerText = "Gagal ekspor! Data tidak ditemukan.";
@@ -1761,14 +1376,12 @@
                 let jnstranRow = row["C"] ? row["C"].toString().trim().toUpperCase() : "";
                 
                 if (noBuktiRow === "") continue;
-
                 if (jnstranFilter !== "ALL" && jnstranRow !== jnstranFilter) continue;
                 
                 let divValue = globalColDivisi && row[globalColDivisi] ? row[globalColDivisi].toString().trim().toUpperCase() : "";
                 if (checkedDivs && !checkedDivs.includes(divValue)) continue;
 
                 if (seenNoBukti.has(noBuktiRow)) continue;
-                
                 seenNoBukti.add(noBuktiRow);
 
                 let kdcust = row["G"] ? row["G"].toString().trim() : "";
@@ -1776,22 +1389,19 @@
                 let alamat_kirim = row["I"] ? row["I"].toString().trim() : "";
                 let tgbukti = row["E"] ? row["E"].toString().trim() : "";
                 let totalInv = row["Y"] ? row["Y"].toString().trim() : "";
-                let kdGudang = row["AC"] ? row["AC"].toString().trim() : "";
-
+                
                 let totalInvRaw = totalInv ? totalInv.toString().trim() : "0";
                 let totalInvNum = parseFloat(totalInvRaw.replace(/,/g, ''));
                 if (isNaN(totalInvNum)) totalInvNum = 0;
 
                 rekapSASData.push({
-                    "kdcust": kdcust,
-                    "nmcust": nmcust,
-                    "alamat_kirim": alamat_kirim, 
-                    "nobukti": noBuktiRow,
-                    "jnstrans": jnstranRow,
-                    "kddivisic": divValue,
-                    "tgbukti": tgbukti,
-                    "total_inv": totalInvNum,
-                    "kdgudang": kdGudang
+                    kdcust: kdcust,
+                    nmcust: nmcust,
+                    alamat_kirim: alamat_kirim, 
+                    nobukti: noBuktiRow,
+                    tgbukti: tgbukti,
+                    total_inv: totalInvNum,
+                    jnstrans: jnstranRow 
                 });
             }
 
@@ -1801,29 +1411,35 @@
                 return;
             }
 
-            const newWorksheet = XLSX.utils.json_to_sheet(rekapSASData);
+            rekapSASData.sort((a, b) => {
+                if (a.jnstrans === b.jnstrans) return 0;
+                return a.jnstrans === "ISJ" ? -1 : 1;
+            });
 
-            const range = XLSX.utils.decode_range(newWorksheet['!ref']);
-            const colWidths = [];
-            
-            for (let C = range.s.c; C <= range.e.c; ++C) {
-                let headerCell = newWorksheet[XLSX.utils.encode_cell({r: 0, c: C})];
-                if (headerCell && headerCell.v === "jnstrans") {
-                    colWidths[C] = { wch: 4 }; 
-                } else if (headerCell && headerCell.v === "kdcust") {
-                    colWidths[C] = { wch: 8 }; 
-                } else if (headerCell && headerCell.v === "nmcust") {
-                    colWidths[C] = { wch: 16 }; 
-                } else if (headerCell && headerCell.v === "kddivisic") {
-                    colWidths[C] = { wch: 9 }; 
-                } else if (headerCell && headerCell.v === "tgbukti") {
-                    colWidths[C] = { wch: 12 }; 
-                } else if (headerCell && headerCell.v === "kdgudang") {
-                    colWidths[C] = { wch: 8 }; 
-                } else {
-                    colWidths[C] = { wch: 15 };
-                }
+            let dates = rekapSASData.map(r => r.tgbukti).filter(d => d).sort();
+            let periodeStr = "";
+            if(dates.length > 0) {
+                periodeStr = dates[0];
+                if(dates[0] !== dates[dates.length-1]) periodeStr += " s/d " + dates[dates.length-1];
             }
+
+            const wsData = [];
+            wsData.push(["Rekap SAS", "", "", "", "", "", "", "", ""]);
+            wsData.push([`Periode ${periodeStr}\n`, "", "", "", "", "", "", "", ""]);
+            wsData.push(["", "", "", "", "", "", "", "", ""]);
+            wsData.push(["", "", "", "", "", "", "", "", ""]);
+            wsData.push(["", "kdcust", "nmcust", "alamat_kirim", "nobukti", "total_inv", "NO SO", "NO SJ", "NO SI"]);
+            
+            rekapSASData.forEach(row => {
+                wsData.push(["", row.kdcust, row.nmcust, row.alamat_kirim, row.nobukti, row.total_inv, "", "", ""]);
+            });
+
+            const newWorksheet = XLSX.utils.aoa_to_sheet(wsData);
+            
+            newWorksheet['!merges'] = [
+                { s: {r:0, c:0}, e: {r:0, c:8} },
+                { s: {r:1, c:0}, e: {r:1, c:8} }
+            ];
 
             const borderStyle = {
                 top: { style: "thin", color: { rgb: "000000" } },
@@ -1832,43 +1448,50 @@
                 right: { style: "thin", color: { rgb: "000000" } }
             };
 
-            for (let cell in newWorksheet) {
-                if (cell[0] === '!') continue; 
-                if (!newWorksheet[cell].s) newWorksheet[cell].s = {};
-                
-                const cellRef = XLSX.utils.decode_cell(cell);
-                newWorksheet[cell].s.font = { sz: 11, name: "Calibri" };
-                newWorksheet[cell].s.border = borderStyle;
-                
-                if (cellRef.r === 0) { 
-                    newWorksheet[cell].s.font.bold = true;
-                    newWorksheet[cell].s.alignment = { horizontal: "center", vertical: "center" };
-                }
+            const range = XLSX.utils.decode_range(newWorksheet['!ref']);
+            for (let R = 0; R <= range.e.r; ++R) {
+                for (let C = 0; C <= range.e.c; ++C) {
+                    let cell_address = {c:C, r:R};
+                    let cell_ref = XLSX.utils.encode_cell(cell_address);
+                    if (!newWorksheet[cell_ref]) continue;
 
-                let cellText = newWorksheet[cell].v ? newWorksheet[cell].v.toString() : "";
-                let headerCell = newWorksheet[XLSX.utils.encode_cell({r: 0, c: cellRef.c})];
-                
-                if (cellRef.r > 0 && headerCell && headerCell.v === "total_inv") {
-                    newWorksheet[cell].z = '#,##0';
-                }
-
-                if (headerCell && headerCell.v === "jnstrans") {
-                    colWidths[cellRef.c].wch = 4;
-                } else if (headerCell && headerCell.v === "kdcust") {
-                    colWidths[cellRef.c].wch = 8;
-                } else if (headerCell && headerCell.v === "nmcust") {
-                    colWidths[cellRef.c].wch = 16;
-                } else if (headerCell && headerCell.v === "kddivisic") {
-                    colWidths[cellRef.c].wch = 9;
-                } else if (headerCell && headerCell.v === "tgbukti") {
-                    colWidths[cellRef.c].wch = 12;
-                } else if (headerCell && headerCell.v === "kdgudang") {
-                    colWidths[cellRef.c].wch = 8;
-                } else if (cellText.length + 2 > colWidths[cellRef.c].wch) {
-                    colWidths[cellRef.c].wch = Math.min(cellText.length + 2, 50);
+                    if (!newWorksheet[cell_ref].s) newWorksheet[cell_ref].s = {};
+                    newWorksheet[cell_ref].s.font = { name: "Calibri", sz: 11 };
+                    
+                    if (R === 0) {
+                        newWorksheet[cell_ref].s.font = { name: "Calibri", sz: 20, bold: true };
+                        newWorksheet[cell_ref].s.alignment = { horizontal: "left", vertical: "center" };
+                    }
+                    if (R === 1) {
+                        newWorksheet[cell_ref].s.font = { name: "Calibri", sz: 11, bold: true };
+                        newWorksheet[cell_ref].s.alignment = { horizontal: "left", vertical: "top" };
+                    }
+                    
+                    if (R === 4 && C > 0) { 
+                        newWorksheet[cell_ref].s.font.bold = true;
+                        newWorksheet[cell_ref].s.border = borderStyle;
+                        newWorksheet[cell_ref].s.alignment = { horizontal: "center", vertical: "center" };
+                    }
+                    if (R > 4 && C > 0) { 
+                        newWorksheet[cell_ref].s.border = borderStyle;
+                        if (C === 5) {
+                            newWorksheet[cell_ref].z = '#,##0';
+                        }
+                    }
                 }
             }
-            newWorksheet['!cols'] = colWidths;
+
+            newWorksheet['!cols'] = [
+                { wch: 2 },    
+                { wch: 10 },   
+                { wch: 28 },   
+                { wch: 35 },   
+                { wch: 15 },   
+                { wch: 15 },   
+                { wch: 11 },   
+                { wch: 11 },   
+                { wch: 11 }    
+            ];
 
             const newWorkbook = XLSX.utils.book_new();
             XLSX.utils.book_append_sheet(newWorkbook, newWorksheet, "Sheet1");
@@ -1884,109 +1507,9 @@
             const outFileName = `${filePrefix}_${y}${m}${d}.xlsx`;
             
             XLSX.writeFile(newWorkbook, outFileName);
-
-            // Ekstra Download Form Rekap SAS jika filternya ISJ atau RTR
-            if (jnstranFilter === "ISJ" || jnstranFilter === "RTR") {
-                const formReqData = [];
-                
-                let dates = rekapSASData.map(r => r.tgbukti).filter(d => d).sort();
-                let periodeStr = "";
-                if(dates.length > 0) {
-                    periodeStr = dates[0];
-                    if(dates[0] !== dates[dates.length-1]) periodeStr += " s/d " + dates[dates.length-1];
-                }
-
-                let titleForm = jnstranFilter === "ISJ" ? "FORM REKAP SAS ISJ" : "FORM REKAP SAS RTR";
-                let col6 = jnstranFilter === "ISJ" ? "NO SO" : "NO RSJ";
-                let col7 = jnstranFilter === "ISJ" ? "NO SJ" : "NO RS";
-
-                formReqData.push([titleForm, "", "", "", "", "", "", ""]);
-                formReqData.push(["", "Periode", periodeStr, "", "", "", "", ""]);
-                formReqData.push(["", "", "", "", "", "", "", ""]);
-                formReqData.push(["", "", "", "", "", "", "", ""]);
-                formReqData.push(["No", "kdcust", "nmcust", "nobukti", "tgbukti", col6, col7, "NO SI"]);
-                
-                rekapSASData.forEach((row, idx) => {
-                    formReqData.push([
-                        idx + 1,
-                        row.kdcust,
-                        row.nmcust,
-                        row.nobukti,
-                        row.tgbukti,
-                        "", 
-                        "", 
-                        ""  
-                    ]);
-                });
-
-                const wsForm = XLSX.utils.aoa_to_sheet(formReqData);
-                wsForm['!merges'] = [ { s: {r:0, c:0}, e: {r:0, c:7} } ];
-
-                const borderStyleForm = {
-                    top: { style: "thin", color: { rgb: "000000" } },
-                    bottom: { style: "thin", color: { rgb: "000000" } },
-                    left: { style: "thin", color: { rgb: "000000" } },
-                    right: { style: "thin", color: { rgb: "000000" } }
-                };
-
-                const rangeForm = XLSX.utils.decode_range(wsForm['!ref']);
-                for (let R = 0; R <= rangeForm.e.r; ++R) {
-                    for (let C = 0; C <= rangeForm.e.c; ++C) {
-                        let cell_address = {c:C, r:R};
-                        let cell_ref = XLSX.utils.encode_cell(cell_address);
-                        if (!wsForm[cell_ref]) continue;
-
-                        if (!wsForm[cell_ref].s) wsForm[cell_ref].s = {};
-                        wsForm[cell_ref].s.font = { name: "Calibri", sz: 11 };
-                        
-                        // Baris 1: FORM REKAP SAS ISJ/RTR (Bold, Rata Kiri, Size 20)
-                        if (R === 0 && C === 0) {
-                            wsForm[cell_ref].s.font = { name: "Calibri", sz: 20, bold: true };
-                            wsForm[cell_ref].s.alignment = { horizontal: "left", vertical: "center" };
-                        }
-                        
-                        // Header Tabel (Baris 5)
-                        if (R === 4) {
-                            wsForm[cell_ref].s.font.bold = true;
-                            wsForm[cell_ref].s.border = borderStyleForm;
-                            wsForm[cell_ref].s.alignment = { horizontal: "center", vertical: "center" };
-                        }
-
-                        // Data Tabel
-                        if (R > 4) {
-                            wsForm[cell_ref].s.border = borderStyleForm;
-                            // Kolom No (Center)
-                            if (C === 0) {
-                                wsForm[cell_ref].s.alignment = { horizontal: "center", vertical: "center" };
-                            }
-                        }
-                    }
-                }
-
-                // Penyesuaian Lebar Kolom untuk pas Kertas A4 Portrait
-                wsForm['!cols'] = [
-                    { wch: 4.5 },   // No
-                    { wch: 9.5 },  // kdcust
-                    { wch: 22 },  // nmcust
-                    { wch: 14 },  // nobukti
-                    { wch: 11 },  // tgbukti
-                    { wch: 10.5 },  // NO SO / NO RSJ
-                    { wch: 10.5 },  // NO SJ / NO RS
-                    { wch: 10.5 }   // NO SI
-                ];
-
-                const wbForm = XLSX.utils.book_new();
-                XLSX.utils.book_append_sheet(wbForm, wsForm, "Sheet1");
-                
-                let outFileNameForm = `FORM_REKAP_SAS_${jnstranFilter}_${y}${m}${d}.xlsx`;
-                XLSX.writeFile(wbForm, outFileNameForm);
-                
-                statusDiv.innerText = `Sukses! Berhasil mengunduh 2 file sekaligus: REKAP SAS & ${titleForm}.`;
-            } else {
-                statusDiv.innerText = `Sukses! Berhasil menghasilkan Rekap SAS dengan ${rekapSASData.length} baris unik. File ${outFileName} diunduh.`;
-            }
             
             statusDiv.className = "success";
+            statusDiv.innerText = `Sukses! Berhasil menghasilkan Rekap SAS dengan ${rekapSASData.length} baris unik. File ${outFileName} diunduh.`;
             
         } catch (error) {
             console.error(error);
