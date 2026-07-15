@@ -307,7 +307,7 @@
 <body>
 
 <div class="container">
-    <div class="version" id="appVersion">v1.39.0</div> <h2>Konverter SAS &rarr; Import Item</h2>
+    <div class="version" id="appVersion">v1.40.0</div> <h2>Konverter SAS &rarr; Import Item</h2>
     <p>Upload file <strong>SAS</strong> lalu masukkan <strong>No Bukti</strong> untuk mengambil barang khusus nota tersebut saja.</p>
     
     <div style="text-align: left; margin-bottom: 10px;">
@@ -428,6 +428,30 @@
     </div>
 </div>
 
+<div id="returCoretanModal" class="modal">
+    <div class="modal-content" style="max-width: 500px; text-align: center; border: 1px solid #f5c6cb; border-radius: 8px;">
+        <span class="close" onclick="closeReturCoretanModal()">&times;</span>
+        <h3 style="color: #dc3545; margin-top: 0; display: flex; align-items: center; justify-content: center; gap: 8px;">
+            ⚠️ Terdeteksi Terdapat Retur Coretan!
+        </h3>
+        <p style="font-size: 13.5px; color: #555; margin-bottom: 15px; line-height: 1.4; text-align: left;">
+            Sistem mendeteksi adanya isi pada kolom <strong>noinvoice (BW)</strong>. Berikut adalah rincian nota retur beserta nota aslinya yang terpengaruh:
+        </p>
+        <div class="preview-table-container" style="max-height: 250px; border: 1px solid #e5e7eb; margin-bottom: 10px;">
+            <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
+                <thead>
+                    <tr style="background-color: #fdf3f4; color: #dc3545;">
+                        <th style="padding: 10px; border-bottom: 2px solid #f5c6cb; font-weight: bold; text-align: center;">No. Bukti Retur (D)</th>
+                        <th style="padding: 10px; border-bottom: 2px solid #f5c6cb; font-weight: bold; text-align: center;">Nota Asli (BW)</th>
+                    </tr>
+                </thead>
+                <tbody id="returCoretanModalBody"></tbody>
+            </table>
+        </div>
+        <button type="button" class="btn-primary" style="margin-top: 10px; padding: 10px 25px; font-size: 14px; width: auto; background-color: #dc3545; font-weight: bold;" onclick="closeReturCoretanModal()">Mengerti & Lanjutkan</button>
+    </div>
+</div>
+
 <script>
     let globalRawData = [];
     let uniqueNoBuktiList = []; 
@@ -445,6 +469,10 @@
         } else {
             box.style.display = 'none';
         }
+    }
+
+    function closeReturCoretanModal() {
+        document.getElementById('returCoretanModal').style.display = 'none';
     }
 
     // === F U N G S I   S T O R A G E ===
@@ -595,6 +623,10 @@
         if (e.target === modal) {
             modal.style.display = 'none';
         }
+        const modalRetur = document.getElementById('returCoretanModal');
+        if (e.target === modalRetur) {
+            modalRetur.style.display = 'none';
+        }
     });
 
     document.addEventListener('keydown', function(e) {
@@ -602,6 +634,10 @@
             const modal = document.getElementById('detailModal');
             if (modal && (modal.style.display === 'flex' || modal.style.display === 'block')) {
                 closeDetailModal();
+            }
+            const modalRetur = document.getElementById('returCoretanModal');
+            if (modalRetur && (modalRetur.style.display === 'flex' || modalRetur.style.display === 'block')) {
+                closeReturCoretanModal();
             }
         }
     });
@@ -845,6 +881,7 @@
             <td colspan="${colspanVal}" style="padding: 8px; border-bottom: 1px solid #e5e7eb; border-right: 1px solid #e5e7eb; text-align: right;">GRAND TOTAL:</td>
             <td style="padding: 8px; border-bottom: 1px solid #e5e7eb; text-align: right;">Rp ${grandTotal.toLocaleString('id-ID', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
         `;
+        grandTotalTr.id = "detailModalGrandTotalRow";
         tbody.appendChild(grandTotalTr);
 
         document.getElementById('detailModalNoBukti').innerText = noBuktiInput;
@@ -967,12 +1004,6 @@
         items[currentFocusNoBukti].scrollIntoView({ block: "nearest" });
     }
 
-    function removeActiveSuggestionNoBukti(items) {
-        for (let i = 0; i < items.length; i++) {
-            items[i].classList.remove("suggestion-active");
-        }
-    }
-
     // === L O G I C   F I L E   S A S   U T A M A ===
     function handleFileSelect(input) {
         const statusDiv = document.getElementById('status');
@@ -1008,6 +1039,45 @@
                 statusDiv.className = "success";
                 statusDiv.innerText = "File SAS sukses dibaca! Ringkasan dokumen telah dimuat di bawah.";
                 statusDiv.style.display = "block";
+
+                // === KODE BARU: Deteksi Otomatis & Trigger Pop-up Retur Coretan BW ===
+                let startRow = 0;
+                if (globalRawData.length > 0) {
+                    let cekAF = globalRawData[0]["AF"] ? globalRawData[0]["AF"].toString().toLowerCase() : "";
+                    if (cekAF === "kdbrg" || cekAF.includes("kode")) {
+                        startRow = 1;
+                    }
+                }
+
+                let returCoretanList = [];
+                let seenRetur = new Set();
+                for (let i = startRow; i < globalRawData.length; i++) {
+                    let row = globalRawData[i];
+                    let noInvoiceBW = row["BW"] ? row["BW"].toString().trim() : "";
+                    let noBuktiD = row["D"] ? row["D"].toString().trim().toUpperCase() : "";
+                    if (noInvoiceBW !== "") {
+                        let key = noBuktiD + "_" + noInvoiceBW;
+                        if (!seenRetur.has(key)) {
+                            seenRetur.add(key);
+                            returCoretanList.push({ nobukti: noBuktiD, notaAsli: noInvoiceBW });
+                        }
+                    }
+                }
+
+                if (returCoretanList.length > 0) {
+                    const tbody = document.getElementById('returCoretanModalBody');
+                    tbody.innerHTML = "";
+                    returCoretanList.forEach(item => {
+                        const tr = document.createElement('tr');
+                        tr.innerHTML = `
+                            <td style="padding: 10px; border-bottom: 1px solid #e5e7eb; text-align: center; font-weight: bold;">${item.nobukti}</td>
+                            <td style="padding: 10px; border-bottom: 1px solid #e5e7eb; text-align: center; color: #dc3545; font-weight: bold;">${item.notaAsli}</td>
+                        `;
+                        tbody.appendChild(tr);
+                    });
+                    document.getElementById('returCoretanModal').style.display = 'flex';
+                }
+
             } catch (error) {
                 console.error(error);
                 spinner.style.display = "none";
@@ -1195,12 +1265,6 @@
                     appendRowToPreview(kodeBarang, qty, bonus, false);
                 }
             }
-        }
-
-        for(let i=0; i<manualItemsList.length; i++) {
-            let m = manualItemsList[i];
-            rowCount++;
-            appendRowToPreview(m.kdbrg, m.qty, m.bonus, true, i);
         }
 
         if (rowCount > 0) {
