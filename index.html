@@ -136,6 +136,9 @@
             margin-bottom: 20px;
             display: none;
         }
+        .summary-box.active {
+            display: block !important;
+        }
         .summary-title {
             font-weight: bold;
             color: #1d4ed8;
@@ -307,7 +310,7 @@
 <body>
 
 <div class="container">
-    <div class="version" id="appVersion">v1.40.0</div> <h2>Konverter SAS &rarr; Import Item</h2>
+    <div class="version" id="appVersion">v1.41.0</div> <h2>Konverter SAS &rarr; Import Item</h2>
     <p>Upload file <strong>SAS</strong> lalu masukkan <strong>No Bukti</strong> untuk mengambil barang khusus nota tersebut saja.</p>
     
     <div style="text-align: left; margin-bottom: 10px;">
@@ -772,6 +775,7 @@
                     ppnRaw = 0;
                 }
 
+                let isRTR = (jnstranRow === "RTR");
                 let rowDscSubtractions = 0;
                 let dscCellsHtml = "";
                 let currentBase = hargaAO; 
@@ -782,7 +786,8 @@
                     
                     if (isBonus) dscVal = 0;
 
-                    dscTotalsObj[col.key] += dscVal;
+                    let dscValForTotal = isRTR ? -Math.abs(dscVal) : dscVal;
+                    dscTotalsObj[col.key] += dscValForTotal;
                     rowDscSubtractions += dscVal;
                     
                     let dscPctDisplay = "0";
@@ -794,8 +799,9 @@
                     
                     currentBase -= dscVal;
                     
+                    let displayDscVal = isRTR ? -Math.abs(dscVal) : dscVal;
                     dscCellsHtml += `<td style="padding: 8px; border-bottom: 1px solid #e5e7eb; border-right: 1px solid #e5e7eb; text-align: right;">${dscPctDisplay}%</td>`;
-                    dscCellsHtml += `<td style="padding: 8px; border-bottom: 1px solid #e5e7eb; border-right: 1px solid #e5e7eb; text-align: right;">Rp ${dscVal.toLocaleString('id-ID', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>`;
+                    dscCellsHtml += `<td style="padding: 8px; border-bottom: 1px solid #e5e7eb; border-right: 1px solid #e5e7eb; text-align: right;">Rp ${displayDscVal.toLocaleString('id-ID', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>`;
                 });
 
                 let batchCellHtml = "";
@@ -807,12 +813,17 @@
 
                 let jumlahRow = (qtyPcs * hargaStdDivided) - rowDscSubtractions;
 
+                let displayHargaStd = isRTR ? -Math.abs(hargaStdDivided) : hargaStdDivided;
+                let displayHargaAO = isRTR ? -Math.abs(hargaAO) : hargaAO;
+                let displayJumlahRow = isRTR ? -Math.abs(jumlahRow) : jumlahRow;
+                let displayPpnRaw = isRTR ? -Math.abs(ppnRaw) : ppnRaw;
+
                 totalQty += qtyPcs;
-                totalJumlah += jumlahRow;
-                totalPpn += ppnRaw;
+                totalJumlah += displayJumlahRow;
+                totalPpn += displayPpnRaw;
                 
-                let formattedPrice = hargaStdDivided.toLocaleString('id-ID', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-                let formattedJumlah = jumlahRow.toLocaleString('id-ID', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                let formattedPrice = displayHargaStd.toLocaleString('id-ID', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                let formattedJumlah = displayJumlahRow.toLocaleString('id-ID', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
                 const tr = document.createElement('tr');
                 tr.innerHTML = `
@@ -821,7 +832,7 @@
                     ${batchCellHtml}
                     <td style="padding: 8px; border-bottom: 1px solid #e5e7eb; border-right: 1px solid #e5e7eb; text-align: right;">${qtyPcs.toLocaleString('id-ID')}</td>
                     <td style="padding: 8px; border-bottom: 1px solid #e5e7eb; border-right: 1px solid #e5e7eb; text-align: right;">Rp ${formattedPrice}</td>
-                    <td style="padding: 8px; border-bottom: 1px solid #e5e7eb; border-right: 1px solid #e5e7eb; text-align: right;">Rp ${hargaAO.toLocaleString('id-ID', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                    <td style="padding: 8px; border-bottom: 1px solid #e5e7eb; border-right: 1px solid #e5e7eb; text-align: right;">Rp ${displayHargaAO.toLocaleString('id-ID', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
                     ${dscCellsHtml}
                     <td style="padding: 8px; border-bottom: 1px solid #e5e7eb; text-align: right;">Rp ${formattedJumlah}</td>
                 `;
@@ -1040,7 +1051,7 @@
                 statusDiv.innerText = "File SAS sukses dibaca! Ringkasan dokumen telah dimuat di bawah.";
                 statusDiv.style.display = "block";
 
-                // === KODE BARU: Deteksi Otomatis & Trigger Pop-up Retur Coretan BW ===
+                // === Deteksi Otomatis & Trigger Pop-up Retur Coretan BW ===
                 let startRow = 0;
                 if (globalRawData.length > 0) {
                     let cekAF = globalRawData[0]["AF"] ? globalRawData[0]["AF"].toString().toLowerCase() : "";
