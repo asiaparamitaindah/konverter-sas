@@ -136,9 +136,6 @@
             margin-bottom: 20px;
             display: none;
         }
-        .summary-box.active {
-            display: block !important;
-        }
         .summary-title {
             font-weight: bold;
             color: #1d4ed8;
@@ -223,6 +220,9 @@
             font-size: 14px;
             border-bottom: 1px solid #eee;
             color: #333;
+        }
+        .suggestion-item:last-child {
+            border-bottom: none;
         }
         .suggestion-item:hover {
             background-color: #e8f4fd;
@@ -310,7 +310,8 @@
 <body>
 
 <div class="container">
-    <div class="version" id="appVersion">v1.41.0</div> <h2>Konverter SAS &rarr; Import Item</h2>
+    <div class="version" id="appVersion">v1.42.0</div> <!-- Versi Diupdate: Mengembalikan Qty menjadi minus sesuai dengan data SAS untuk RTR di Detail Nota -->
+    <h2>Konverter SAS &rarr; Import Item</h2>
     <p>Upload file <strong>SAS</strong> lalu masukkan <strong>No Bukti</strong> untuk mengambil barang khusus nota tersebut saja.</p>
     
     <div style="text-align: left; margin-bottom: 10px;">
@@ -423,7 +424,8 @@
             <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
                 <thead>
                     <tr style="background-color: #f3f4f6;">
-                        </tr>
+                        <!-- Tabel ini akan dirender ulang oleh javascript -->
+                    </tr>
                 </thead>
                 <tbody id="detailModalBody"></tbody>
             </table>
@@ -431,6 +433,7 @@
     </div>
 </div>
 
+<!-- Modal Pop-up User Friendly Khusus Deteksi Retur Coretan -->
 <div id="returCoretanModal" class="modal">
     <div class="modal-content" style="max-width: 500px; text-align: center; border: 1px solid #f5c6cb; border-radius: 8px;">
         <span class="close" onclick="closeReturCoretanModal()">&times;</span>
@@ -755,7 +758,6 @@
                 let qtyPcsStr = row["AS"] ? row["AS"].toString().trim().replace(/,/g, '') : "0";
                 let qtyPcs = parseFloat(qtyPcsStr);
                 if (isNaN(qtyPcs)) qtyPcs = 0;
-                if (jnstranRow === "RTR") qtyPcs = Math.abs(qtyPcs);
                 
                 let bonusRaw = row["AT"] ? row["AT"].toString().trim().toUpperCase() : "";
                 let isBonus = (bonusRaw === "TRUE" || bonusRaw === "1");
