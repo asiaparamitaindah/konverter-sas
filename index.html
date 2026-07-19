@@ -221,9 +221,6 @@
             border-bottom: 1px solid #eee;
             color: #333;
         }
-        .suggestion-item:last-child {
-            border-bottom: none;
-        }
         .suggestion-item:hover {
             background-color: #e8f4fd;
         }
@@ -310,7 +307,7 @@
 <body>
 
 <div class="container">
-    <div class="version" id="appVersion">v1.42.0</div> <!-- Versi Diupdate: Mengembalikan Qty menjadi minus sesuai dengan data SAS untuk RTR di Detail Nota -->
+    <div class="version" id="appVersion">v1.43.0</div> <!-- Versi Diupdate: Penandaan RTR Penjualan / Coretan di Preview -->
     <h2>Konverter SAS &rarr; Import Item</h2>
     <p>Upload file <strong>SAS</strong> lalu masukkan <strong>No Bukti</strong> untuk mengambil barang khusus nota tersebut saja.</p>
     
@@ -1232,6 +1229,7 @@
         let rowCount = 0;
         let invoiceTotal = 0; 
         let noInvoiceVal = "";
+        let isRTR = false;
 
         if (globalRawData.length > 0 && noBuktiInput !== "") {
             let startRow = 0;
@@ -1255,6 +1253,8 @@
                 if (checkedDivs && !checkedDivs.includes(divValue)) continue;
 
                 if (noBuktiRow === noBuktiInput) {
+                    if (jnstranRow === "RTR") isRTR = true;
+                    
                     let kodeBarang = row["AF"] ? row["AF"].toString().trim() : "";
                     let qty = row["AS"] ? row["AS"].toString().trim() : "";
                     if (jnstranRow === "RTR" && qty.startsWith("-")) qty = qty.replace("-", "");
@@ -1283,7 +1283,16 @@
         if (rowCount > 0) {
             let labelText = noBuktiInput || "Input Manual";
             lblNoBukti.innerText = `${labelText} (${rowCount} Baris)`;
-            lblPreviewNoInvoice.innerText = noInvoiceVal ? ` - No Invoice: ${noInvoiceVal}` : "";
+            
+            if (isRTR) {
+                if (noInvoiceVal) {
+                    lblPreviewNoInvoice.innerText = ` - RETUR CORETAN (${noInvoiceVal})`;
+                } else {
+                    lblPreviewNoInvoice.innerText = ` - RETUR PENJUALAN`;
+                }
+            } else {
+                lblPreviewNoInvoice.innerText = noInvoiceVal ? ` - No Invoice: ${noInvoiceVal}` : "";
+            }
             
             let formattedTotal = invoiceTotal.toLocaleString('id-ID');
             previewFooter.innerHTML = `Total Invoice (SAS): <span style="color: #28a745;">Rp ${formattedTotal}</span>`;
