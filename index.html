@@ -241,6 +241,31 @@
             to { opacity: 1; }
         }
 
+        .tab-container {
+            display: flex;
+            border-bottom: 2px solid #007bff;
+            margin-bottom: 20px;
+            margin-top: 20px;
+        }
+        .tab-btn {
+            flex: 1;
+            padding: 12px;
+            cursor: pointer;
+            border-radius: 5px 5px 0 0;
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-bottom: none;
+            margin-right: 2px;
+            font-weight: bold;
+            color: #6c757d;
+            transition: 0.3s;
+        }
+        .tab-btn.active {
+            background-color: #007bff;
+            color: white;
+            border-color: #007bff;
+        }
+
         /* --- CSS Tambahan untuk Checkbox Divisi --- */
         .checkbox-group {
             display: flex;
@@ -307,7 +332,7 @@
 <body>
 
 <div class="container">
-    <div class="version" id="appVersion">v1.43.0</div> <!-- Versi Diupdate: Penandaan RTR Penjualan / Coretan di Preview -->
+    <div class="version" id="appVersion">v1.45.0</div> <!-- Versi Diupdate: Klik No Bukti di Tab Pencarian Retur -->
     <h2>Konverter SAS &rarr; Import Item</h2>
     <p>Upload file <strong>SAS</strong> lalu masukkan <strong>No Bukti</strong> untuk mengambil barang khusus nota tersebut saja.</p>
     
@@ -327,7 +352,13 @@
         </ul>
     </div>
 
-    <div id="tab-sas" class="tab-content active" style="margin-top: 20px;">
+    <!-- Tab Container -->
+    <div class="tab-container">
+        <div class="tab-btn active" onclick="switchTab('sas')" id="btn-tab-sas">Input SAS Utama</div>
+        <div class="tab-btn" onclick="switchTab('retur')" id="btn-tab-retur">Pencarian Retur</div>
+    </div>
+
+    <div id="tab-sas" class="tab-content active">
         <div class="form-group">
             <label for="fileInput">Pilih file SAS (.xlsx / .csv):</label>
             <input type="file" id="fileInput" accept=".xlsx, .xls, .csv" onchange="handleFileSelect(this)">
@@ -366,6 +397,31 @@
                 <button type="button" class="btn-success" style="margin-top: 0; padding: 10px 15px; width: auto;" onclick="showDetailNota()">Lihat Detail Nota</button>
             </div>
             <small class="help-text">Ketik No Bukti secara lengkap untuk memunculkan preview barang di bawah.</small>
+        </div>
+    </div>
+
+    <!-- Tab Content Pencarian Retur -->
+    <div id="tab-retur" class="tab-content">
+        <div class="form-group">
+            <label>Pencarian Retur (Berdasarkan kdcust atau nmcust):</label>
+            <input type="text" id="searchKdcust" placeholder="Ketik Kode/Nama Customer (Contoh: 00-0035)..." autocomplete="off" oninput="handleCariRetur()">
+            <small class="help-text">Hasil akan otomatis muncul di bawah berdasarkan file SAS yang telah di-upload. <strong>Klik No Bukti</strong> untuk melihat detail nota.</small>
+        </div>
+        
+        <div class="preview-table-container" style="max-height: 400px; border: 1px solid #e5e7eb;">
+            <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
+                <thead>
+                    <tr style="background-color: #f3f4f6;">
+                        <th style="padding: 8px; text-align: left; border-bottom: 1px solid #e5e7eb; position: sticky; top: 0;">Kode Customer</th>
+                        <th style="padding: 8px; text-align: left; border-bottom: 1px solid #e5e7eb; position: sticky; top: 0;">Nama Customer</th>
+                        <th style="padding: 8px; text-align: left; border-bottom: 1px solid #e5e7eb; position: sticky; top: 0;">No Bukti Retur</th>
+                        <th style="padding: 8px; text-align: left; border-bottom: 1px solid #e5e7eb; position: sticky; top: 0;">No Bukti Asli</th>
+                    </tr>
+                </thead>
+                <tbody id="returSearchResultBody">
+                    <tr><td colspan="4" style="text-align: center; padding: 15px; color: #888;">Silakan ketik Kode atau Nama Customer...</td></tr>
+                </tbody>
+            </table>
         </div>
     </div>
 
@@ -565,6 +621,10 @@
         
         document.getElementById('noBuktiInput').value = "";
         
+        if(document.getElementById('searchKdcust')) document.getElementById('searchKdcust').value = "";
+        const tbodyRetur = document.getElementById('returSearchResultBody');
+        if(tbodyRetur) tbodyRetur.innerHTML = '<tr><td colspan="4" style="text-align: center; padding: 15px; color: #888;">Silakan ketik Kode/Nama Customer...</td></tr>';
+        
         if(document.getElementById('manualKdBrg')) document.getElementById('manualKdBrg').value = "";
         if(document.getElementById('manualQtyDus')) document.getElementById('manualQtyDus').value = "";
         if(document.getElementById('manualQtyLsn')) document.getElementById('manualQtyLsn').value = "";
@@ -588,14 +648,14 @@
 
     function switchTab(tabId) {
         let tabSas = document.getElementById('tab-sas');
-        let tabManual = document.getElementById('tab-manual');
+        let tabRetur = document.getElementById('tab-retur');
         let btnTabSas = document.getElementById('btn-tab-sas');
-        let btnTabManual = document.getElementById('btn-tab-manual');
+        let btnTabRetur = document.getElementById('btn-tab-retur');
 
         if(tabSas) tabSas.classList.remove('active');
-        if(tabManual) tabManual.classList.remove('active');
+        if(tabRetur) tabRetur.classList.remove('active');
         if(btnTabSas) btnTabSas.classList.remove('active');
-        if(btnTabManual) btnTabManual.classList.remove('active');
+        if(btnTabRetur) btnTabRetur.classList.remove('active');
 
         let targetTab = document.getElementById('tab-' + tabId);
         let targetBtn = document.getElementById('btn-tab-' + tabId);
@@ -603,12 +663,20 @@
         if(targetTab) targetTab.classList.add('active');
         if(targetBtn) targetBtn.classList.add('active');
 
-        if(tabId === 'manual') {
-            let btnRekap = document.getElementById('btnRekapSAS');
-            if(btnRekap) btnRekap.style.display = 'none';
+        if(tabId === 'retur') {
+            document.getElementById('previewBox').style.display = 'none';
+            document.getElementById('btnRekapSAS').style.display = 'none';
+            const fmtDrop = document.getElementById('formatDropdown');
+            if(fmtDrop) fmtDrop.parentElement.style.display = 'none';
+            const btnProses = document.querySelector('button[onclick="processFile()"]');
+            if(btnProses) btnProses.style.display = 'none';
         } else {
-            let btnRekap = document.getElementById('btnRekapSAS');
-            if(btnRekap) btnRekap.style.display = 'block';
+            document.getElementById('btnRekapSAS').style.display = 'block';
+            const fmtDrop = document.getElementById('formatDropdown');
+            if(fmtDrop) fmtDrop.parentElement.style.display = 'block';
+            const btnProses = document.querySelector('button[onclick="processFile()"]');
+            if(btnProses) btnProses.style.display = 'block';
+            renderPreview();
         }
     }
 
@@ -644,6 +712,71 @@
             }
         }
     });
+
+    // === L O G I C   P E N C A R I A N   R E T U R ===
+    function handleCariRetur() {
+        const keyword = document.getElementById('searchKdcust').value.trim().toLowerCase();
+        const tbody = document.getElementById('returSearchResultBody');
+        tbody.innerHTML = "";
+
+        if(keyword.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="4" style="text-align: center; padding: 15px; color: #888;">Silakan ketik Kode atau Nama Customer...</td></tr>';
+            return;
+        }
+
+        if(globalRawData.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="4" style="text-align: center; padding: 15px; color: #dc3545;">Data SAS belum di-upload.</td></tr>';
+            return;
+        }
+
+        let startRow = 0;
+        let cekAF = globalRawData[0]["AF"] ? globalRawData[0]["AF"].toString().toLowerCase() : "";
+        if (cekAF === "kdbrg" || cekAF.includes("kode")) {
+            startRow = 1;
+        }
+
+        const seenRetur = new Set();
+        const results = [];
+
+        for (let i = startRow; i < globalRawData.length; i++) {
+            const row = globalRawData[i];
+            let jnstran = row["C"] ? row["C"].toString().trim().toUpperCase() : "";
+            if (jnstran !== "RTR") continue;
+
+            let kdcust = row["G"] ? row["G"].toString().trim() : "";
+            let nmcust = row["H"] ? row["H"].toString().trim() : "";
+            
+            if (kdcust.toLowerCase().includes(keyword) || nmcust.toLowerCase().includes(keyword)) {
+                let noBuktiRetur = row["D"] ? row["D"].toString().trim().toUpperCase() : "";
+                let noBuktiAsli = row["BW"] ? row["BW"].toString().trim() : "-";
+                
+                if (!seenRetur.has(noBuktiRetur)) {
+                    seenRetur.add(noBuktiRetur);
+                    results.push({ kdcust, nmcust, noBuktiRetur, noBuktiAsli });
+                }
+            }
+        }
+
+        if(results.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="4" style="text-align: center; padding: 15px; color: #888;">Tidak ada data retur untuk customer tersebut.</td></tr>';
+            return;
+        }
+
+        results.forEach(res => {
+            const tr = document.createElement('tr');
+            
+            let cursorAsli = res.noBuktiAsli !== "-" ? "cursor: pointer; text-decoration: underline;" : "";
+            let clickAsli = res.noBuktiAsli !== "-" ? `onclick="document.getElementById('noBuktiInput').value='${res.noBuktiAsli}'; showDetailNota();"` : "";
+
+            tr.innerHTML = `
+                <td style="padding: 8px; border-bottom: 1px solid #e5e7eb;">${res.kdcust}</td>
+                <td style="padding: 8px; border-bottom: 1px solid #e5e7eb;">${res.nmcust}</td>
+                <td style="padding: 8px; border-bottom: 1px solid #e5e7eb; font-weight: bold; color: #28a745; cursor: pointer; text-decoration: underline;" onclick="document.getElementById('noBuktiInput').value='${res.noBuktiRetur}'; showDetailNota();">${res.noBuktiRetur}</td>
+                <td style="padding: 8px; border-bottom: 1px solid #e5e7eb; color: #dc3545; font-weight: bold; ${cursorAsli}" ${clickAsli}>${res.noBuktiAsli}</td>
+            `;
+            tbody.appendChild(tr);
+        });
+    }
 
     // === L O G I C   M O D A L   D E T A I L   N O T A ===
     function showDetailNota() {
@@ -755,6 +888,7 @@
                 let qtyPcsStr = row["AS"] ? row["AS"].toString().trim().replace(/,/g, '') : "0";
                 let qtyPcs = parseFloat(qtyPcsStr);
                 if (isNaN(qtyPcs)) qtyPcs = 0;
+                if (jnstranRow === "RTR") qtyPcs = Math.abs(qtyPcs);
                 
                 let bonusRaw = row["AT"] ? row["AT"].toString().trim().toUpperCase() : "";
                 let isBonus = (bonusRaw === "TRUE" || bonusRaw === "1");
@@ -1014,6 +1148,12 @@
         items[currentFocusNoBukti].scrollIntoView({ block: "nearest" });
     }
 
+    function removeActiveSuggestionNoBukti(items) {
+        for (let i = 0; i < items.length; i++) {
+            items[i].classList.remove("suggestion-active");
+        }
+    }
+
     // === L O G I C   F I L E   S A S   U T A M A ===
     function handleFileSelect(input) {
         const statusDiv = document.getElementById('status');
@@ -1042,6 +1182,7 @@
                 calculateSummary(globalRawData);
                 populateSuggestions(globalRawData);
                 handleNoBuktiInput();
+                handleCariRetur();
 
                 saveToStorage(); 
 
