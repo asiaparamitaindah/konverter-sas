@@ -332,7 +332,7 @@
 <body>
 
 <div class="container">
-    <div class="version" id="appVersion">v1.45.0</div> <!-- Versi Diupdate: Klik No Bukti di Tab Pencarian Retur -->
+    <div class="version" id="appVersion">v1.46.0</div> <!-- Versi Diupdate: Tanggal Transaksi & Hide/Show Harga LSN -->
     <h2>Konverter SAS &rarr; Import Item</h2>
     <p>Upload file <strong>SAS</strong> lalu masukkan <strong>No Bukti</strong> untuk mengambil barang khusus nota tersebut saja.</p>
     
@@ -471,12 +471,15 @@
         <label style="float: right; margin-right: 15px; margin-top: 6px; font-size: 13px; font-weight: normal; display: flex; align-items: center; gap: 5px; cursor: pointer; color: #333;">
             <input type="checkbox" id="chkIncludePpn" onchange="showDetailNota()"> include PPN
         </label>
+        <label style="float: right; margin-right: 15px; margin-top: 6px; font-size: 13px; font-weight: normal; display: flex; align-items: center; gap: 5px; cursor: pointer; color: #333;">
+            <input type="checkbox" id="chkShowHargaLsn" onchange="showDetailNota()"> Tampilkan Harga LSN
+        </label>
         <h3 style="color: #333; margin-top: 0; margin-bottom: 5px;">Detail Keseluruhan Nota: <span id="detailModalNoBukti" style="color: #007bff;"></span></h3>
         <div id="detailModalSubInfo" style="margin-bottom: 15px; font-size: 14px; color: #555;"></div>
         <div class="preview-table-container" style="max-height: 450px; border: 1px solid #e5e7eb;">
             <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
                 <thead>
-                    <tr style="background-color: #f3f4f6;">
+                    <tr style="background-color: #f3f4f6;" id="detailModalHeadRow">
                         <!-- Tabel ini akan dirender ulang oleh javascript -->
                     </tr>
                 </thead>
@@ -817,6 +820,7 @@
         let modalKdCust = "";
         let modalNmCust = "";
         let modalKdDivisi = "";
+        let modalTgBukti = ""; 
 
         const activeDscCols = [];
         dscColsMapping.forEach(col => {
@@ -837,7 +841,8 @@
             }
         });
 
-        const headRow = tbody.parentElement.querySelector('thead tr');
+        let showHargaLsn = document.getElementById('chkShowHargaLsn') && document.getElementById('chkShowHargaLsn').checked;
+        const headRow = document.getElementById('detailModalHeadRow');
         let headHtml = `
             <th style="padding: 8px; border-bottom: 1px solid #e5e7eb; border-right: 1px solid #e5e7eb; position: sticky; top: 0;">Kode Barang (AF)</th>
             <th style="padding: 8px; border-bottom: 1px solid #e5e7eb; border-right: 1px solid #e5e7eb; position: sticky; top: 0;">Nama Barang (AG)</th>
@@ -848,8 +853,10 @@
         headHtml += `
             <th style="padding: 8px; border-bottom: 1px solid #e5e7eb; border-right: 1px solid #e5e7eb; position: sticky; top: 0; text-align: right;">Qty Pcs (AS)</th>
             <th style="padding: 8px; border-bottom: 1px solid #e5e7eb; border-right: 1px solid #e5e7eb; position: sticky; top: 0; text-align: right;">Harga Std / PCS (AH)</th> 
-            <th style="padding: 8px; border-bottom: 1px solid #e5e7eb; border-right: 1px solid #e5e7eb; position: sticky; top: 0; text-align: right;">Harga Std / LSN (AO)</th> 
         `;
+        if (showHargaLsn) {
+            headHtml += `<th style="padding: 8px; border-bottom: 1px solid #e5e7eb; border-right: 1px solid #e5e7eb; position: sticky; top: 0; text-align: right;">Harga Std / LSN (AO)</th>`;
+        }
         
         activeDscCols.forEach(col => {
             let pctLabel = col.key === "AZ" ? "Disc1 % (AZ)" : `Dsc % (${col.key})`; 
@@ -878,6 +885,7 @@
                     modalKdCust = row["G"] ? row["G"].toString().trim() : "";
                     modalNmCust = row["H"] ? row["H"].toString().trim() : "";
                     modalKdDivisi = globalColDivisi && row[globalColDivisi] ? row[globalColDivisi].toString().trim() : "";
+                    modalTgBukti = row["E"] ? row["E"].toString().trim() : "";
                 }
                 found = true;
                 
@@ -888,7 +896,6 @@
                 let qtyPcsStr = row["AS"] ? row["AS"].toString().trim().replace(/,/g, '') : "0";
                 let qtyPcs = parseFloat(qtyPcsStr);
                 if (isNaN(qtyPcs)) qtyPcs = 0;
-                if (jnstranRow === "RTR") qtyPcs = Math.abs(qtyPcs);
                 
                 let bonusRaw = row["AT"] ? row["AT"].toString().trim().toUpperCase() : "";
                 let isBonus = (bonusRaw === "TRUE" || bonusRaw === "1");
@@ -958,6 +965,11 @@
                 let formattedPrice = displayHargaStd.toLocaleString('id-ID', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
                 let formattedJumlah = displayJumlahRow.toLocaleString('id-ID', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
+                let lsnCellHtml = "";
+                if (showHargaLsn) {
+                    lsnCellHtml = `<td style="padding: 8px; border-bottom: 1px solid #e5e7eb; border-right: 1px solid #e5e7eb; text-align: right;">Rp ${displayHargaAO.toLocaleString('id-ID', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>`;
+                }
+
                 const tr = document.createElement('tr');
                 tr.innerHTML = `
                     <td style="padding: 8px; border-bottom: 1px solid #e5e7eb; border-right: 1px solid #e5e7eb;">${kdbrg}</td>
@@ -965,7 +977,7 @@
                     ${batchCellHtml}
                     <td style="padding: 8px; border-bottom: 1px solid #e5e7eb; border-right: 1px solid #e5e7eb; text-align: right;">${qtyPcs.toLocaleString('id-ID')}</td>
                     <td style="padding: 8px; border-bottom: 1px solid #e5e7eb; border-right: 1px solid #e5e7eb; text-align: right;">Rp ${formattedPrice}</td>
-                    <td style="padding: 8px; border-bottom: 1px solid #e5e7eb; border-right: 1px solid #e5e7eb; text-align: right;">Rp ${displayHargaAO.toLocaleString('id-ID', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                    ${lsnCellHtml}
                     ${dscCellsHtml}
                     <td style="padding: 8px; border-bottom: 1px solid #e5e7eb; text-align: right;">Rp ${formattedJumlah}</td>
                 `;
@@ -985,6 +997,7 @@
         });
 
         let totalLabelColspan = isKamKar ? 3 : 2;
+        let lsnEmptyCell = showHargaLsn ? `<td style="padding: 8px; border-bottom: 1px solid #e5e7eb; border-right: 1px solid #e5e7eb;"></td>` : "";
 
         const tfootTr = document.createElement('tr');
         tfootTr.style.fontWeight = "bold";
@@ -993,13 +1006,13 @@
             <td colspan="${totalLabelColspan}" style="padding: 8px; border-bottom: 1px solid #e5e7eb; border-right: 1px solid #e5e7eb; text-align: right;">TOTAL KESELURUHAN:</td>
             <td style="padding: 8px; border-bottom: 1px solid #e5e7eb; border-right: 1px solid #e5e7eb; text-align: right;">${totalQty.toLocaleString('id-ID')}</td>
             <td style="padding: 8px; border-bottom: 1px solid #e5e7eb; border-right: 1px solid #e5e7eb;"></td>
-            <td style="padding: 8px; border-bottom: 1px solid #e5e7eb; border-right: 1px solid #e5e7eb;"></td>
+            ${lsnEmptyCell}
             ${footerDscCellsHtml}
             <td style="padding: 8px; border-bottom: 1px solid #e5e7eb; text-align: right;">Rp ${totalJumlah.toLocaleString('id-ID', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
         `;
         tbody.appendChild(tfootTr);
 
-        let colspanVal = (isKamKar ? 3 : 2) + 3 + (activeDscCols.length * 2);
+        let colspanVal = (isKamKar ? 3 : 2) + (showHargaLsn ? 3 : 2) + (activeDscCols.length * 2);
 
         let isPpnRemoved = document.getElementById('chkIncludePpn') && document.getElementById('chkIncludePpn').checked;
         if (isPpnRemoved) {
@@ -1029,7 +1042,7 @@
         tbody.appendChild(grandTotalTr);
 
         document.getElementById('detailModalNoBukti').innerText = noBuktiInput;
-        document.getElementById('detailModalSubInfo').innerHTML = `<strong>Customer:</strong> ${modalKdCust} - ${modalNmCust} &nbsp;|&nbsp; <strong>Divisi:</strong> ${modalKdDivisi}`;
+        document.getElementById('detailModalSubInfo').innerHTML = `<strong>Tanggal:</strong> ${modalTgBukti} &nbsp;|&nbsp; <strong>Customer:</strong> ${modalKdCust} - ${modalNmCust} &nbsp;|&nbsp; <strong>Divisi:</strong> ${modalKdDivisi}`;
         document.getElementById('detailModal').style.display = 'flex';
     }
 
