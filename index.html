@@ -332,7 +332,7 @@
 <body>
 
 <div class="container">
-    <div class="version" id="appVersion">v1.46.0</div> <!-- Versi Diupdate: Tanggal Transaksi & Hide/Show Harga LSN -->
+    <div class="version" id="appVersion">v1.47.0</div> <!-- Versi Diupdate: Info Kode Gudang di Header Preview & Detail Nota -->
     <h2>Konverter SAS &rarr; Import Item</h2>
     <p>Upload file <strong>SAS</strong> lalu masukkan <strong>No Bukti</strong> untuk mengambil barang khusus nota tersebut saja.</p>
     
@@ -428,7 +428,7 @@
     <hr style="margin: 30px 0; border: 1px solid #eef2f5;">
 
     <div id="previewBox" class="preview-box">
-        <strong>🔍 Preview Barang (<span id="lblNoBukti" style="color:#28a745;"></span>)<span id="lblPreviewNoInvoice" style="color:red; margin-left:8px; font-weight:bold;"></span></strong>
+        <strong>🔍 Preview Barang (<span id="lblNoBukti" style="color:#28a745;"></span>)<span id="lblPreviewNoInvoice" style="color:red; margin-left:8px; font-weight:bold;"></span><span id="lblPreviewGudang" style="color:#007bff; margin-left:8px; font-weight:bold;"></span></strong>
         <div class="preview-table-container">
             <table>
                 <thead>
@@ -821,6 +821,7 @@
         let modalNmCust = "";
         let modalKdDivisi = "";
         let modalTgBukti = ""; 
+        let modalKdGudang = ""; 
 
         const activeDscCols = [];
         dscColsMapping.forEach(col => {
@@ -886,6 +887,7 @@
                     modalNmCust = row["H"] ? row["H"].toString().trim() : "";
                     modalKdDivisi = globalColDivisi && row[globalColDivisi] ? row[globalColDivisi].toString().trim() : "";
                     modalTgBukti = row["E"] ? row["E"].toString().trim() : "";
+                    modalKdGudang = row["AC"] ? row["AC"].toString().trim() : "";
                 }
                 found = true;
                 
@@ -1042,7 +1044,7 @@
         tbody.appendChild(grandTotalTr);
 
         document.getElementById('detailModalNoBukti').innerText = noBuktiInput;
-        document.getElementById('detailModalSubInfo').innerHTML = `<strong>Tanggal:</strong> ${modalTgBukti} &nbsp;|&nbsp; <strong>Customer:</strong> ${modalKdCust} - ${modalNmCust} &nbsp;|&nbsp; <strong>Divisi:</strong> ${modalKdDivisi}`;
+        document.getElementById('detailModalSubInfo').innerHTML = `<strong>Tanggal:</strong> ${modalTgBukti} &nbsp;|&nbsp; <strong>Gudang:</strong> ${modalKdGudang} &nbsp;|&nbsp; <strong>Customer:</strong> ${modalKdCust} - ${modalNmCust} &nbsp;|&nbsp; <strong>Divisi:</strong> ${modalKdDivisi}`;
         document.getElementById('detailModal').style.display = 'flex';
     }
 
@@ -1378,11 +1380,13 @@
         const lblNoBukti = document.getElementById('lblNoBukti');
         const previewFooter = document.getElementById('previewFooter'); 
         const lblPreviewNoInvoice = document.getElementById('lblPreviewNoInvoice');
+        const lblPreviewGudang = document.getElementById('lblPreviewGudang'); 
 
         previewBody.innerHTML = "";
         let rowCount = 0;
         let invoiceTotal = 0; 
         let noInvoiceVal = "";
+        let kdGudangVal = ""; 
         let isRTR = false;
 
         if (globalRawData.length > 0 && noBuktiInput !== "") {
@@ -1417,6 +1421,9 @@
                     if (row["BW"]) {
                         noInvoiceVal = row["BW"].toString().trim();
                     }
+                    if (row["AC"]) {
+                        kdGudangVal = row["AC"].toString().trim();
+                    }
 
                     let totalInvRaw = row["Y"] ? parseFloat(row["Y"].toString().trim()) : 0;
                     if (!isNaN(totalInvRaw)) {
@@ -1447,6 +1454,8 @@
             } else {
                 lblPreviewNoInvoice.innerText = noInvoiceVal ? ` - No Invoice: ${noInvoiceVal}` : "";
             }
+
+            lblPreviewGudang.innerText = kdGudangVal ? ` - Gudang: ${kdGudangVal}` : "";
             
             let formattedTotal = invoiceTotal.toLocaleString('id-ID');
             previewFooter.innerHTML = `Total Invoice (SAS): <span style="color: #28a745;">Rp ${formattedTotal}</span>`;
@@ -1455,6 +1464,7 @@
         } else {
             previewBox.style.display = "none";
             lblPreviewNoInvoice.innerText = "";
+            lblPreviewGudang.innerText = "";
         }
     }
 
